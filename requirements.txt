@@ -1,0 +1,9 @@
+selenium
+google-cloud-vision
+openai
+google-generativeai
+PyMuPDF
+Pillow
+tqdm
+tiktoken
+flask
