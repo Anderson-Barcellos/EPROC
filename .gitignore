@@ -1,0 +1,3 @@
+# Ignore contents of Processos/Processed except .gitkeep
+Processos/Processed/*
+!Processos/Processed/.gitkeep
