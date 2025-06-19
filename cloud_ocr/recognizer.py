@@ -100,7 +100,7 @@ def Recognize() -> None:
 
             for file in files:
                 try:
-                    name = file[3:23]
+                    name, _ = os.path.splitext(file)  # Extract filename without extension
                     file_path = os.path.join("Processos", file)
                     output_path = os.path.join("Output", f"{name}.txt")
 
