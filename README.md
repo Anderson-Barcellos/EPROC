@@ -109,6 +109,16 @@ driver = webdriver.Chrome()
 main(driver, "numero_do_processo")
 ```
 
+### Interface Web
+
+Para utilizar a interface em HTML com envio por drag and drop, execute:
+
+```bash
+python app.py
+```
+
+O navegador exibirá os relatórios gerados e permitirá visualizar o conteúdo em Markdown.
+
 ## 🧩 Módulos
 
 ### 📄 WorkFlow.py
