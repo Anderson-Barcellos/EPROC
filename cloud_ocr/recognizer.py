@@ -97,11 +97,19 @@ def Recognize() -> None:
             progress_files = ProgressBar(len(files), "Processing files", "file")
             os.makedirs(os.path.join("Processos", "Processed"), exist_ok=True)
 
+            os.makedirs(os.path.join("Processos", "Processed"), exist_ok=True)
+
             for file in files:
                 try:
-                    name = file[3:23]
+                    name, _ = os.path.splitext(file)  # Extract filename without extension
                     file_path = os.path.join("Processos", file)
                     output_path = os.path.join("Output", f"{name}.txt")
+
+                    _process_pdf(file_path, output_path)
+                    shutil.move(
+                        file_path,
+                        os.path.join("Processos", "Processed", f"{name}.pdf"),
+                    )
 
                     _process_pdf(file_path, output_path)
                     dest = os.path.join("Processos", "Processed", f"{name}.pdf")
