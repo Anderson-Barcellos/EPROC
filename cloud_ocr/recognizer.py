@@ -95,6 +95,7 @@ def Recognize() -> None:
 
         else:
             progress_files = ProgressBar(len(files), "Processing files", "file")
+            os.makedirs(os.path.join("Processos", "Processed"), exist_ok=True)
 
             os.makedirs(os.path.join("Processos", "Processed"), exist_ok=True)
 
@@ -109,6 +110,10 @@ def Recognize() -> None:
                         file_path,
                         os.path.join("Processos", "Processed", f"{name}.pdf"),
                     )
+
+                    _process_pdf(file_path, output_path)
+                    dest = os.path.join("Processos", "Processed", f"{name}.pdf")
+                    shutil.move(file_path, dest)
                     progress_files.update(1)
 
                 except Exception as e:

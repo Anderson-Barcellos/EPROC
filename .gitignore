@@ -1,3 +1,4 @@
+
 # Ignore generated files
 Processos/*
 !Processos/.gitkeep
@@ -11,3 +12,7 @@ Reports/*
 Reports/Processed/*
 !Reports/Processed/.gitkeep
 __pycache__/
+# Ignore contents of Processos/Processed except .gitkeep
+Processos/Processed/*
+!Processos/Processed/.gitkeep
+

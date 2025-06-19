@@ -96,4 +96,4 @@ def OCR_Single_Image(path: str) -> str:
         raise
 
 
-print(__file__)
+# print(__file__)
