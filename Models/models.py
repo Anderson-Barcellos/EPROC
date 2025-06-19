@@ -27,7 +27,7 @@ import json
 import time
 from threading import Event
 import sys
-from Browsing import *
+
 # Add the parent directory to path so Python can find your modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -45,9 +45,6 @@ openai_key = os.getenv("OPENAI")
 #!KEYS and APIS
 genai.configure(api_key=gemini_key)
 
-
-client = OpenAI(api_key=openai_key)
-
 generation_config = {
  "temperature": 0.7,
   "top_p": 0.95,
@@ -60,7 +57,7 @@ generation_config = {
 template_ready = Event()
 
 
-def GPTReport(name: str, model: str, system_instruction: str, threaded: bool = False):
+def GPTReport(name: str, model: str, system_instruction: str, reasoning_effort: str = "medium", threaded: bool = False):
     """### 📝 GPTReport
     Generates a medical report from a given text using the `OPENAI` models. This function can operate either synchronously or asynchronously in a separate thread.
 
@@ -68,6 +65,7 @@ def GPTReport(name: str, model: str, system_instruction: str, threaded: bool = F
         - `name` (`str`): The name of the input file to process, including its extension.
         - `model` (`str`): The identifier of the model to be used for report generation.
         - `system_instruction` (`str`): Instructions provided to the system for processing.
+        - `reasoning_effort` (`str`, optional): The effort level for reasoning. Defaults to `medium`.
         - `threaded` (`bool`, optional): If set to `True`, the function runs in a separate thread. Defaults to `False`.
 
     #### 🔄 Returns
@@ -112,7 +110,7 @@ def GPTReport(name: str, model: str, system_instruction: str, threaded: bool = F
                     "temperature": 0.3,
                 }
                 if "o3" in model.lower() or "o4-mini" in model.lower():
-                    config["max_completion_tokens"] = 100000
+                    config["reasoning_effort"] = reasoning_effort
                     config.pop("temperature")
 
                 response = client.chat.completions.create(**config)
@@ -379,276 +377,4 @@ def GeminiReport(name: str, model_name: str, system_instruction: str, threaded: 
 
     else:
         return wrapper(name)
-
-
-def O3Report(name: str, model: str, system_instruction: str, threaded: bool = False, reasoning_effort: str = "medium"):
-    """### 📝 O3Report
-    Generates a medical report using OpenAI's o3/o4-mini reasoning models with enhanced capabilities.
-    These models excel at complex reasoning tasks and support advanced parameters for better control.
-
-    #### 🖥️ Parameters
-        - `name` (`str`): The name of the input file to process, including its extension.
-        - `model` (`str`): The identifier of the o3/o4-mini model (e.g., "o3-2025-04-16", "o4-mini").
-        - `system_instruction` (`str`): Instructions provided to the system for processing.
-        - `threaded` (`bool`, optional): If set to `True`, the function runs in a separate thread. Defaults to `False`.
-        - `reasoning_effort` (`str`, optional): Reasoning effort level for o3 models ("low", "medium", "high"). Defaults to "medium".
-
-    #### 🔄 Returns
-        - `None`: The function does not return a value but writes the output to a file.
-
-    #### ⚠️ Raises
-        - `FileNotFoundError`: If the specified input file does not exist.
-        - `Exception`: For any other errors encountered during processing.
-
-    #### 📌 Notes
-        - Optimized for o3 and o4-mini models with enhanced reasoning capabilities.
-        - Supports reasoning effort control for o3 models to balance quality vs speed.
-        - Uses increased max_completion_tokens for better output quality.
-        - The generated report is saved in the `Reports` directory with the filename format: `{name}_o3_final_report.md`.
-
-    #### 💡 Example
-
-    >>> O3Report("patient_file.pdf", model="o3-2025-04-16", system_instruction="Analyze the medical data", threaded=True, reasoning_effort="high")
-
-    """
-
-    def wrapper(name: str):
-        try:
-            prompt = ""
-            print(f"Starting O3/O4-mini Report with model: {model}")
-            file_path = os.path.join(".", "Output", name)
-
-            with open(file_path, "r", encoding="utf-8") as f:
-                print(f"Reading file {name}")
-                prompt = f.read()
-                print("Requesting report generation with enhanced reasoning capabilities")
-
-                # Enhanced parameters for o3/o4-mini models
-                request_params = {
-                    "model": model,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": system_instruction
-                        },
-                        {
-                            "role": "user",
-                            "content": f"DADOS PARA PERICIA:{prompt}\n"
-                        }
-                    ],
-                    "max_completion_tokens": 16384,  # Higher token limit for detailed reports
-                    "temperature": 0.3,  # Lower temperature for more consistent outputs
-                    "top_p": 0.9,
-                    "presence_penalty": 0.1,
-                    "frequency_penalty": 0.1,
-
-                }
-
-                # Add reasoning effort for o3 models
-                if "o3" in model.lower() and "mini" not in model.lower():
-                    request_params["reasoning_effort"] = reasoning_effort
-
-                response = client.chat.completions.create(**request_params)
-
-                content = response.choices[0].message.content
-
-                # Enhanced metadata for o3/o4-mini reports
-                metadata = f"# Relatório Médico Pericial\n"
-                metadata += f"**Modelo:** {model}\n"
-                metadata += f"**Tokens de Entrada:** {response.usage.prompt_tokens if response.usage else 'N/A'}\n"
-                metadata += f"**Tokens de Saída:** {response.usage.completion_tokens if response.usage else 'N/A'}\n"
-                metadata += f"**Data de Geração:** {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-                metadata += "---\n\n"
-
-                output_path = os.path.join(save_path, f"{name[:-3]}_o3_final_report.md")
-
-                with open(output_path, "w", encoding="utf-8") as f:
-                    f.write(metadata + content)
-
-                print(f"Enhanced O3/O4-mini report generated and saved to {output_path}")
-
-                # Display usage statistics if available
-                if response.usage:
-                    print(f"Token usage - Input: {response.usage.prompt_tokens}, Output: {response.usage.completion_tokens}")
-
-        except Exception as e:
-            print(f"Error processing file {name} with {model}: {str(e)}")
-            # Enhanced error logging for debugging
-            import traceback
-            print(f"Detailed error: {traceback.format_exc()}")
-
-
-    if threaded:
-        threading.Thread(target=wrapper, args=(name,)).start()
-    else:
-        return wrapper(name)
-
-
-def O3MiniTemplate(model: str, file_path: str, template_event, reasoning_effort: str = "medium") -> str:
-    """### 📝 O3MiniTemplate
-    Organizes text using OpenAI's o3-mini or o4-mini models with enhanced reasoning capabilities.
-    These models excel at structured reasoning and logical organization tasks.
-
-    #### 🖥️ Parameters
-        - `model` (`str`): The o3-mini/o4-mini model identifier to be used for processing.
-        - `file_path` (`str`): The path to the input file containing the text to be organized.
-        - `template_event` (`Event`): A threading event to signal when the template is ready.
-        - `reasoning_effort` (`str`, optional): Reasoning effort level for o3-mini ("low", "medium", "high"). Defaults to "medium".
-
-    #### 🔄 Returns
-        - `str`: The organized text in a structured JSON format.
-
-    #### ⚠️ Raises
-        - `FileNotFoundError`: If the specified file path does not exist.
-        - `ValueError`: If the model identifier is invalid or unsupported.
-
-    #### 📌 Notes
-        - Optimized for o3-mini and o4-mini models with advanced reasoning.
-        - Enhanced JSON validation and error handling.
-        - Better token management for complex processing tasks.
-
-    #### 💡 Example
-
-    >>> O3MiniTemplate("o3-mini", "path/to/file.txt", template_event, reasoning_effort="high")
-
-    """
-    def wrapper(file_path: str, template_event: Event = None):
-        try:
-            print(f"Starting O3/O4-mini template generation with model: {model}")
-
-            with open(file_path, "r", encoding="utf-8") as f:
-                prompt = f.read()
-
-            print(f"Processing with enhanced reasoning model: {model}")
-
-            # Enhanced parameters for o3-mini/o4-mini
-            request_params = {
-                "model": model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": """
-                        Você é um especialista em análise de processos judiciais previdenciários com capacidades avançadas de raciocínio.
-                        Sua função é produzir um arquivo JSON estruturado e preciso conforme as instruções detalhadas.
-
-                        Use suas capacidades de raciocínio aprimoradas para:
-                        1. Analisar cuidadosamente todo o conteúdo processual
-                        2. Identificar e extrair informações relevantes com precisão
-                        3. Organizar os dados de forma lógica e estruturada
-                        4. Validar a consistência das informações extraídas
-
-                        ESTRUTURE AS STRINGS COM PARÁGRAFOS ADEQUADAMENTE SEPARADOS POR NOVAS LINHAS QUANDO ADEQUADO:
-
-                        # INSTRUÇÕES DE PREENCHIMENTO:
-
-                        ## ELEMENTOS SEM SEÇÃO ESPECÍFICA:
-                        Devem ser preenchidos a partir das informações disponíveis no conteúdo:
-                        - "FormacaoTecnicoProfissional": "ESCOLARIDADE"
-                        - "UltimaAtividade": "ÚLTIMO TRABALHO REALIZADO"
-                        - "TarefasExigidasUltimaAtividade": "MANTENHA O VALOR PADRÃO => Não especificado"
-                        - "QuantoTempoUltimaAtividade": "MANTENHA O VALOR PADRÃO => Não especificado"
-                        - "AteQuandoUltimaAtividade": "DATA DE TÉRMINO DA ÚLTIMA ATIVIDADE"
-                        - "ExperienciasLaboraisAnt": "MANTENHA O VALOR PADRÃO => -------"
-                        - "DCB": "ÚLTIMA DATA DE CESSAÇÃO DE BENEFÍCIO OU DER NA AUSÊNCIA DE BENEFÍCIO"
-                        - "DID": "DATA DE INÍCIO DA DOENÇA"
-                        - "DER": "DATA DE ENTRADA DO REQUERIMENTO"
-                        - "DAP": "DATA DA ÚLTIMA ATIVIDADE PROFISSIONAL"
-
-                        ## ELEMENTOS COM SEÇÃO PRÓPRIA:
-                        Devem ter seu valor substituído pela INTEGRIDADE DO TEXTO DA SEÇÃO:
-                        - "DocumentosMedicosAnalisados": MÁXIMO 10 itens (Mais recentes)
-                        - "HistoricoAnamnese": Máximo de 100 palavras
-                        - "ExameFisicoMental": ""
-                        - "CONCLUSAO PERICIAL": Máximo de 70 palavras
-                        - "ESCALA CIF": Se presente, deve ser copiada em sua integridade
-
-                        <TEMPLATE DE JSON>
-                        {
-                            "json": {
-                                "FormacaoTecnicoProfissional": "",
-                                "UltimaAtividade": "",
-                                "TarefasExigidasUltimaAtividade": "Não especificado",
-                                "QuantoTempoUltimaAtividade": "Não especificado",
-                                "AteQuandoUltimaAtividade": "",
-                                "ExperienciasLaboraisAnt": "-------",
-                                "MotivoIncapacidade": "(MÁXIMO 3 PALAVRAS)",
-                                "HistoricoAnamnese": "",
-                                "DocumentosMedicosAnalisados": "",
-                                "DCB": "",
-                                "DID": "",
-                                "CausaProvavelDiagnostico": "Adquirida",
-                                "CIF": "Existindo uma seção de escala CIF, deve ser copiada em sua integridade aqui"
-                            }
-                        }
-                        </TEMPLATE DE JSON>
-
-                        OBSERVAÇÕES IMPORTANTES:
-                        - Na falta de DCB, preencha com a mesma data de DER
-                        - Retorne APENAS o JSON válido, sem markdown ou outras formatações
-                        - Use raciocínio cuidadoso para garantir precisão e consistência
-                        """
-                    },
-                    {
-                        "role": "user",
-                        "content": f"CONTEÚDO PROCESSUAL PARA ANÁLISE: {prompt}"
-                    }
-                ],
-                "max_completion_tokens": 8192,  # Higher limit for detailed analysis
-                "temperature": 0.1,  # Very low for consistent JSON structure
-                "top_p": 0.95,
-                "response_format": {"type": "json_object"}  # Ensure JSON output
-            }
-
-            # Add reasoning effort for o3-mini models
-            if "o3" in model.lower():
-                request_params["reasoning_effort"] = reasoning_effort
-
-            response = client.chat.completions.create(**request_params)
-            content = response.choices[0].message.content
-
-            # Enhanced JSON validation
-            try:
-                import json
-                parsed_json = json.loads(content)
-                # Re-format for consistency
-                content = json.dumps(parsed_json, ensure_ascii=False, indent=4)
-                print("JSON validation successful")
-            except json.JSONDecodeError as e:
-                print(f"JSON validation failed: {e}")
-                print("Attempting to clean and validate JSON...")
-                content = clean_and_validate_json(content)
-                if not content:
-                    raise ValueError("Failed to generate valid JSON after cleaning attempts")
-
-            print("Saving enhanced template with metadata")
-
-            # Add metadata header
-            metadata = f"""// O3/O4-mini Enhanced Template
-// Model: {model}
-// Reasoning Effort: {reasoning_effort if 'o3' in model.lower() else 'N/A'}
-// Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}
-// Tokens Used: {response.usage.total_tokens if response.usage else 'N/A'}
-
-"""
-
-            with open(os.path.join(".", "laudo_template.json"), "w", encoding="utf-8") as f:
-                f.write(metadata + content)
-
-            print("Enhanced O3/O4-mini template saved successfully")
-
-            # Set the event to signal template is ready
-            if template_event:
-                template_event.set()
-
-            return content
-
-        except Exception as e:
-            print(f"Error processing template with {model}: {str(e)}")
-            import traceback
-            print(f"Detailed error: {traceback.format_exc()}")
-            if template_event:
-                template_event.set()  # Signal completion even on error
-            return None
-
-    threading.Thread(target=wrapper, args=(file_path, template_event)).start()
 
