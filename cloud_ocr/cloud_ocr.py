@@ -14,31 +14,45 @@ from pathlib import Path
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 key = {}
-try:
-    if os.path.exists("key.json"):
-        key_path = Path(__file__).parent / "key.json"
-        with open(key_path, "r") as file:
-            key = json.load(file)
-    else:
-        raise Exception(f"\033[91m[ERROR]\033[0m COULD NOT FIND KEY.JSON FILE")
-except Exception as e:
-    print(f"{str(e)}")
 
+try:
+    key_path = "D:/OneDrive/Área de Trabalho/Complementares/cloud_ocr/key.json"
+    with open(key_path, "r") as file:
+        key = json.load(file)
+except Exception as e:
+    print(f"Error loading key.json: {str(e)}")
+    raise
 
 credentials = service_account.Credentials.from_service_account_info(key)
 client = vision.ImageAnnotatorClient(credentials=credentials)
 
-
-
 def OCR(page: fitz.Page, page_num: int, thread: bool = False) -> str:
     """
-    This function saves the page as a png image and then uses the Google Cloud Vision API to detect the text.
-    ### Args:
-        - page (fitz.Page): The page to be processed.
-        - page_num (int): The index of the page.
-    ### Returns:
-        - text (str): The detected text.
+    ### 📝 OCR
+    Processes a PDF page to extract text using the Google Cloud Vision API.
+
+    ### 🖥️ Parameters
+    - `page` (`fitz.Page`): The PDF page to be processed.
+    - `page_num` (`int`): The page number, used for naming the temporary image file.
+    - `thread` (`bool`, optional): If `True`, the OCR process runs in a separate thread. Defaults to `False`.
+
+    ### 🔄 Returns
+    - `str`: The detected text from the page, formatted with page start and end markers.
+
+    #### ⚠️ Raises
+    - `Exception`: Raised if there is an error during image processing or text detection.
+
+    ### 📌 Notes
+    - The function temporarily saves the page as a PNG image for text detection.
+    - The temporary image file is deleted after processing.
+    - Ensure that the Google Cloud Vision API credentials are correctly configured.
+
+    ### 💡 Example
+
+    >>> OCR(page, 1)
+    'Detected text from page 1...'
     """
+
     def _OCR(page: fitz.Page, page_num: int) -> str:
         pix = page.get_pixmap(matrix=fitz.Identity)  # type: ignore
         img = Image.frombuffer(
@@ -52,8 +66,8 @@ def OCR(page: fitz.Page, page_num: int, thread: bool = False) -> str:
                 content = image_file.read()
             os.remove(temp_image_path)
             # Realiza a detecção de texto
-            response = client.text_detection(
-                image=vision.Image(content=content))  # type: ignore
+            response = client.text_detection(  # type: ignore[attr-defined]
+                image=vision.Image(content=content))
 
             # Verifica se há erro
             if response.error.message:
@@ -89,7 +103,7 @@ def OCR_Single_Image(path: str) -> str:
         with open(temp_image_path, 'rb') as image_file:
             content = image_file.read()
         os.remove(temp_image_path)
-        response = client.text_detection(image=vision.Image(content=content))  # type: ignore
+        response = client.text_detection(image=vision.Image(content=content))  # type: ignore[attr-defined]
         return   response.text_annotations[0].description
     except Exception as e:
         print(f"Error processing image: {str(e)}")
