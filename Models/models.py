@@ -27,23 +27,95 @@ import json
 import time
 from threading import Event
 import sys
+import shutil
 
 # Add the parent directory to path so Python can find your modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from Tools import count_tokens
 
 # GLOBALS
 save_path = os.path.join(".", "Reports")
 results = {}
+gemini_key = os.environ.get("GEMINI_API_KEY")
+openai_key = os.environ.get("OPENAI_API_KEY")
 
-#KEYS
-gemini_key = os.getenv("GEMINI")
-openai_key = os.getenv("OPENAI")
+def test_api_keys(verbose: bool = True):
+    """
+    ### 🧪 test_api_keys
+    Tests the presence and functionality of the OpenAI and Gemini API keys, printing detailed and user-friendly results.
+    This function checks for the presence of the keys in environment variables and attempts a minimal API call to validate each key.
 
+    ### 🖥️ Parameters
+        - `verbose` (`bool`, optional): If True, prints detailed results to the console. Defaults to True.
 
-#!KEYS and APIS
-genai.configure(api_key=gemini_key)
+    ### 🔄 Returns
+        - `dict`: Dictionary containing status information for each API key:
+            - 'openai': {'present': bool, 'valid': bool, 'error': str or None}
+            - 'gemini': {'present': bool, 'valid': bool, 'error': str or None}
+
+    ### ⚠️ Raises
+        - `Exception`: If an unexpected error occurs during the API validation process.
+
+    ### 💡 Example
+
+    >>> test_api_keys()
+    [OpenAI] Presente: ✅ | Funcional: ✅
+    [Gemini] Presente: ❌ | Funcional: ❌
+
+    """
+    result = {
+        'openai': {'present': False, 'valid': False, 'error': None},
+        'gemini': {'present': False, 'valid': False, 'error': None}
+    }
+
+    # Check OpenAI API key
+    print("\n🔎 Checando variáveis de ambiente para APIs...\n")
+    if openai_key:
+        result['openai']['present'] = True
+        print("[OpenAI] Presença da variável: ✅")
+        try:
+            client = OpenAI(api_key=openai_key)
+            _ = client.models.list()
+            result['openai']['valid'] = True
+            print("[OpenAI] Teste de funcionalidade: ✅ (Chave válida e funcional)")
+        except Exception as e:
+            result['openai']['error'] = str(e)
+            print(f"[OpenAI] Teste de funcionalidade: ❌ (Erro: {e})")
+    else:
+        print("[OpenAI] Presença da variável: ❌ (Chave não encontrada)")
+        print("[OpenAI] Teste de funcionalidade: ❌ (Não testado)")
+
+    print("-" * 50)
+
+    # Check Gemini API key
+    if gemini_key:
+        result['gemini']['present'] = True
+        print("[Gemini] Presença da variável: ✅")
+        try:
+            genai.configure(api_key=gemini_key)
+            _ = genai.list_models()
+            result['gemini']['valid'] = True
+            print("[Gemini] Teste de funcionalidade: ✅ (Chave válida e funcional)")
+        except Exception as e:
+            result['gemini']['error'] = str(e)
+            print(f"[Gemini] Teste de funcionalidade: ❌ (Erro: {e})")
+    else:
+        print("[Gemini] Presença da variável: ❌ (Chave não encontrada)")
+        print("[Gemini] Teste de funcionalidade: ❌ (Não testado)")
+
+    print("\nResumo dos testes de API:")
+    for api in ['openai', 'gemini']:
+        pres = "✅" if result[api]['present'] else "❌"
+        valid = "✅" if result[api]['valid'] else "❌"
+        print(f"  [{api.upper()}] Presente: {pres} | Funcional: {valid}")
+        if result[api]['error']:
+            print(f"    ↳ Erro: {result[api]['error']}")
+
+    return result
+
+print(test_api_keys())
+
+genai.configure(api_key=gemini_key) #!CHECK IF THIS IS NEEDED
 
 generation_config = {
  "temperature": 0.7,
@@ -55,6 +127,8 @@ generation_config = {
 
 # Adicione uma variável global para controlar o estado do template
 template_ready = Event()
+
+client = OpenAI(api_key=openai_key)
 
 
 def GPTReport(name: str, model: str, system_instruction: str, reasoning_effort: str = "medium", threaded: bool = False):
@@ -115,7 +189,9 @@ def GPTReport(name: str, model: str, system_instruction: str, reasoning_effort: 
 
                 response = client.chat.completions.create(**config)
                 content = response.choices[0].message.content
-                output_path = os.path.join(".", "Reports", f"{name[:-3]}_final_report.md")
+                # Use os.path.splitext to drop the extension without leaving a trailing dot
+                base_name = os.path.splitext(name)[0]
+                output_path = os.path.join(".", "Reports", f"{base_name}_final_report.md")
                 with open(output_path, "w", encoding="utf-8") as f:
                     f.write(f"{content}")
                 print(f"Final report generated and saved to {output_path}")
@@ -144,8 +220,7 @@ def clean_and_validate_json(content):
         print("Conteúdo não é um JSON válido após limpeza.")
         return None
 
-
-def MiniTemplate(model: str, file_path: str, template_event) -> str:
+def MiniTemplate(model: str, file_path: str, template_event) -> None:
     """### 📝 MiniTemplate
     Organizes text using the GPT-4o-mini model to generate a structured output.
 
@@ -155,7 +230,7 @@ def MiniTemplate(model: str, file_path: str, template_event) -> str:
     - `template_event` (`Event`, optional): A threading event (Barrier) to signal when the template is ready. Defaults to None.
 
     #### 🔄 Returns
-    - `str`: The organized text in a structured format.
+    - `None`: The function does not return a value but writes the output to a file.
 
     #### ⚠️ Raises
     - `FileNotFoundError`: If the specified file path does not exist.
@@ -171,11 +246,10 @@ def MiniTemplate(model: str, file_path: str, template_event) -> str:
     #"Organized text output"
 
     """
-    def wrapper(file_path: str, template_event: Event = None):
+    def wrapper(file_path: str, template_event: Event):
         try:
             print("Starting mini template")
             prompt = ""
-            file_path = file_path
             with open(file_path, "r", encoding="utf-8") as f:
                 prompt = f.read()
             print(f"Awaking {model}")
@@ -185,77 +259,106 @@ def MiniTemplate(model: str, file_path: str, template_event) -> str:
                     {
                         "role": "system",
                         "content": """
-                        Você receberá resumo do conteúdo de um processo judicial previdenciário. Sua função sera produzir um arquivo JSON conforme as instruções a seguir. ESTRUTURE AS STRINGS COM PARAGRAFOS ADEQUADAMENTES SEPARADOS POR NOVAS LINHAS QUANDO ADEQUADO:
-                        # O PREENCHIMENTO SE DA DA SEGUINTE FORMA:
-                        Organize as secoes usando espacos \n.
+# SISTEMA DE ANÁLISE DE PROCESSO JUDICIAL PREVIDENCIÁRIO
 
-                        - ELEMENTOS QUE NAO POSSUEM UMA SECAO ESPECIFICA, DEVEM SER PREENCHIDOS A PARTIR DAS INFORMAÇÕES DISPONIVEIS NO CONTEÚDO. ABAIXO ESTA A LISTA DE ELEMENTOS A SEREM PREENCHIDOS:
-                                "FormacaoTecnicoProfissional": "ESCOLARIDADE",
-                                "UltimaAtividade": "ULTIMO TRABALHO REALIZADO",
-                                "TarefasExigidasUltimaAtividade": "MANTENHA O VALOR PADRAO => Nao especificado",
-                                "QuantoTempoUltimaAtividade": "MANTENHA O VALOR PADRAO => Nao especificado",
-                                "AteQuandoUltimaAtividade": "DATA DE TERMINO DA ULTIMA ATIVIDADE",
-                                "ExperienciasLaboraisAnt": "MANTENHA O VALOR PADRAO => -------",
-                                "DCB": "ULTIMA DATA DE CESSACAO DE BENEFICIO OU DER NA AUSENCIA DE BENEFICIO",
-                                "DID": "DATA DE INICIO DA DOENÇA",
-                                "DER": "DATA DE ENTRADA DO REQUERIMENTO",
-                                "DAP": "DATA DA ULTIMA ATIVIDADE PROFISSIONAL",
+## OBJETIVO
+Você é um assistente especializado em análise de processos judiciais previdenciários. Sua tarefa é extrair informações específicas de um documento processual e organizá-las em formato JSON estruturado para integração com o sistema EPROC via Selenium.
 
+## PROCESSO DE ANÁLISE (CHAIN OF THOUGHT)
 
+### PASSO 1: LEITURA COMPREENSIVA
+Primeiro, leia TODO o conteúdo processual identificando:
+- Dados pessoais e profissionais do requerente
+- Histórico médico e perícias
+- Datas relevantes (DER, DID, DCB, DAP)
+- Documentação médica anexada
+- Conclusões periciais
 
-                        - OS ELEMENTOS QUE POSSUEM O VALOR ABAIXO IDENTICO, POSSUEM UMA SEÇÃO PROPRIA DE MESMO NOME. Sendo assim, devem ter seu valor substituido pela INTEGRIDADE DO TEXTO DA SEÇÃO:
-                                "DocumentosMedicosAnalisados":  MAXIMO 10 itens (Mais recentes)
-                                "HistoricoAnamnese":  Máximo de 100 palavras
-                                "ExameFisicoMental": ""
-                                "CONCLUSAO PERICIAL":  Máximo de 70 palavras
-                                "ESCALA CIF": "" - Esta se presente junto do documento analisado, deve ser copiada em sua integridade.
+### PASSO 2: CATEGORIZAÇÃO DAS INFORMAÇÕES
+Classifique as informações encontradas em três categorias:
 
-                        - OS DEMAIS ELEMENTOS DEVEM SER PREENCHIDOS COM O VALOR JA ESPECIFICADO NO JSON
-                        UMA VEZ PRONTO, RETORNE O TEMPLATE DE JSON COM OS VALORES PREENCHIDOS CONFORME AS INSTRUCOES ANTERIORES.
+#### CATEGORIA A - EXTRAÇÃO DIRETA
+Informações que devem ser extraídas diretamente do texto:
+- **FormacaoTecnicoProfissional**: Escolaridade/formação do requerente
+- **UltimaAtividade**: Último trabalho/ocupação exercida
+- **AteQuandoUltimaAtividade**: Data de término da última atividade
+- **DCB**: Data de Cessação do Benefício (se não houver, use a DER)
+- **DID**: Data de Início da Doença
+- **DER**: Data de Entrada do Requerimento
+- **DAP**: Data da última Atividade Profissional
+- **MotivoIncapacidade**: Resumo em até 3 palavras da causa principal
 
-                        # EXEMPLOS:
-                          <EXEMPLO PARA ELEMENTOS SEM SECAO ESPECIFICA>
-                            "CONCLUSAO PERICIAL" : "SUBSTITUIR A STRING PADRAO PELA SUA PROCURA NO CONTEÚDO"
-                            </EXEMPLO PARA ELEMENTOS SEM SECAO ESPECIFICA>
+#### CATEGORIA B - SEÇÕES ESPECÍFICAS
+Informações que possuem seções próprias no documento e devem ser copiadas integralmente:
+- **DocumentosMedicosAnalisados**: Listar os 10 documentos médicos mais recentes
+- **HistoricoAnamnese**: Resumir em até 100 palavras
+- **ExameFisicoMental**: Copiar integralmente se existir
+- **CONCLUSAO PERICIAL**: Resumir em até 70 palavras
+- **CIF**: Se houver escala CIF, copiar integralmente
 
-                            <EXEMPLO PARA ELEMENTOS COM SECAO ESPECIFICA>
-                                "DocumentosMedicosAnalisados" : DOCUMENTOS MEDICOS ANALISADOS:
-                                1. Receituário Médico:  Data: 22/08/2024- Médico: Dr. Hilton (assinatura ilegível)
-                                CID: F33 (Transtorno depressivo recorrente)
-                                Informações: A paciente Vera Lúcia Rangel da Rosa necessita de acompanhamento com cuidador. Prescrição de 180 dias.
+#### CATEGORIA C - VALORES PADRÃO
+Manter valores padrão quando não houver informação:
+- **TarefasExigidasUltimaAtividade**: "Não especificado"
+- **QuantoTempoUltimaAtividade**: "Não especificado"
+- **ExperienciasLaboraisAnt**: "-------"
+- **CausaProvavelDiagnostico**: "Adquirida"
 
-                                2. Receituário Médico: Data: 13/08/2024- Médico: Dr. Nilton Souto - Psiquiatra (CRM RS7918)
-                                CID: F33 (Transtorno depressivo recorrente)
-                                Informações: Paciente em tratamento no CAPS com sintomas depressivos. Prescrição de Duloxetina 30g/dia, Amitriptilina 25mg/noite e outro medicamento ilegível 10mg/noite.
+### PASSO 3: FORMATAÇÃO E VALIDAÇÃO
 
-                            </EXEMPLO PARA ELEMENTOS COM SECAO ESPECIFICA>
+#### REGRAS DE FORMATAÇÃO:
+1. **Parágrafos**: Use \n para separar parágrafos quando apropriado
+2. **Datas**: Formato DD/MM/AAAA
+3. **Documentos Médicos**:
+   - Formato: [Número]. [Tipo de Documento]: Data: [DD/MM/AAAA] - Médico: [Nome] ([CRM])
+   - CID: [Código] ([Descrição])
+   - Informações: [Detalhes relevantes]
+4. **Texto**: Sem formatação (sem markdown, HTML ou similares)
 
-                        <TEMPLATE DE JSON>
-                        {
-                            "json": {
-                                "FormacaoTecnicoProfissional":"" ,
-                                "UltimaAtividade": "",
-                                "TarefasExigidasUltimaAtividade": "Nao especificado",
-                                "QuantoTempoUltimaAtividade": "Nao especificado",
-                                "AteQuandoUltimaAtividade": "",
-                                "ExperienciasLaboraisAnt": "",
-                                "MotivoIncapacidade": "(MAXIMO 3 PALAVRAS)",
-                                "HistoricoAnamnese": "",
-                                "DocumentosMedicosAnalisados": "",
-                                "DCB": "",
-                                "DID": "",
-                                "CausaProvavelDiagnostico": "Adquirida",
-                                "CIF": "Existindo um seção de escala CIF, deve ser copiada em sua integridade aqui"
+#### VALIDAÇÕES OBRIGATÓRIAS:
+- ✓ Verificar se DCB existe; caso contrário, usar DER
+- ✓ Limitar DocumentosMedicosAnalisados aos 10 mais recentes
+- ✓ Respeitar limites de palavras onde especificado
+- ✓ Garantir que todas as datas estejam no formato correto
 
+### PASSO 4: ESTRUTURA JSON FINAL
 
-                            }
-                        }
-                        </TEMPLATE DE JSON>
-                        Observações:
-                        Na falta de DCB, preencha a seção DCB com a mesma data de DER "
-                        Esta devera ser o formato exato de texto json que sera retornado. Nao adicione mark languages ou outras informações.
-                        NAO UTILIZE QUALQUER ESTILIZACAO NO TEXTO COMO MARKDOWN, HTML OU QUALQUER OUTRO FORMATO DE MARK LANGUAGE
-                        NA SECAO DE DOCUMENTOS MEDICOS, PODE SER SUGERIDO O USO DE MARKDOWN PARA ORGANIZAR O TEXTO.
+Retorne APENAS o JSON abaixo, sem markdown ou formatação adicional:
+
+{
+    "json": {
+        "FormacaoTecnicoProfissional": "[extrair do texto]",
+        "UltimaAtividade": "[extrair do texto]",
+        "TarefasExigidasUltimaAtividade": "Não especificado",
+        "QuantoTempoUltimaAtividade": "Não especificado",
+        "AteQuandoUltimaAtividade": "[extrair do texto]",
+        "ExperienciasLaboraisAnt": "-------",
+        "MotivoIncapacidade": "[máximo 3 palavras]",
+        "HistoricoAnamnese": "[seção específica - máx 150 palavras]",
+        "DocumentosMedicosAnalisados": "[seção específica - máx 10 itens]",
+        "ExameFisicoMental": "[seção específica - integral]",
+        "CONCLUSAO PERICIAL": "[seção específica - máx 70 palavras]",
+        "DCB": "[extrair ou usar DER]",
+        "DID": "[extrair do texto]",
+        "DER": "[extrair do texto]",
+        "DAP": "[extrair do texto]",
+        "CausaProvavelDiagnostico": "Adquirida",
+        "CIF": "[copiar escala CIF se existir]"
+    }
+}
+
+## EXEMPLOS DE REFERÊNCIA
+
+### Exemplo de DocumentosMedicosAnalisados:
+"DocumentosMedicosAnalisados": "1. Receituário Médico: Data: 22/08/2024 - Médico: Dr. Hilton Silva (CRM RS12345)\nCID: F33 (Transtorno depressivo recorrente)\nInformações: Paciente necessita acompanhamento com cuidador. Prescrição de 180 dias.\n\n2. Laudo Psiquiátrico: Data: 15/07/2024 - Médico: Dra. Maria Santos (CRM RS54321)\nCID: F41.1 (Transtorno de ansiedade generalizada)\nInformações: Paciente apresenta sintomas ansiosos graves com prejuízo funcional."
+
+### Exemplo de HistoricoAnamnese:
+"HistoricoAnamnese": "Paciente relata início dos sintomas depressivos há 3 anos, com piora progressiva. Refere tristeza profunda, anedonia, insônia e ideação suicida. Tentou retornar ao trabalho em duas ocasiões sem sucesso. Faz acompanhamento psiquiátrico regular no CAPS desde 2022."
+
+## INSTRUÇÕES FINAIS
+- Analise metodicamente cada seção do documento
+- Extraia apenas informações explicitamente presentes
+- Mantenha a objetividade e precisão
+- Retorne APENAS o JSON, sem texto adicional
 
                         """
                     },
@@ -266,7 +369,7 @@ def MiniTemplate(model: str, file_path: str, template_event) -> str:
                 ],
                 temperature=0.3,
             )
-            content = response.choices[0].message.content
+            content:str | None = response.choices[0].message.content
             print("Saving template")
 
             with open(os.path.join(".", "laudo_template.json"), "w", encoding="utf-8") as f:
@@ -336,7 +439,9 @@ def GeminiReport(name: str, model_name: str, system_instruction: str, threaded: 
                 print(f"Content read. File size: {len(content)} characters")
 
             #!PATH FOR THE REPORT FILE
-            output_path = os.path.join(".", "Reports", f"{name[:-3]}_final_report.md")
+            # Use os.path.splitext to drop the extension without leaving a trailing dot
+            base_name = os.path.splitext(name)[0]
+            output_path = os.path.join(".", "Reports", f"{base_name}_final_report.md")
             print(f"Output will be saved to: {output_path}")
 
             #!SENDING REQUEST TO THE GEMINI MODEL
@@ -349,7 +454,7 @@ def GeminiReport(name: str, model_name: str, system_instruction: str, threaded: 
                     print("Content generated. Processing response...")
                     answer = response.text
                     print(f"Writing response to file: {output_path}")
-                    with open( os.path.join(".", "Reports", f"{name[:-3]}_final_report.md"), "w", encoding="utf-8") as f:
+                    with open( os.path.join(".", "Reports", f"{base_name}_final_report.md"), "w", encoding="utf-8") as f:
                         f.write("\n" + answer)
 
                     print("Response written to file successfully")
@@ -378,3 +483,41 @@ def GeminiReport(name: str, model_name: str, system_instruction: str, threaded: 
     else:
         return wrapper(name)
 
+def Generate_Final_Report(model, system_instruction, reasoning_effort: str = "medium")-> None:
+    """
+    ### 📄 Generate_Final_Report
+    Coordinates the creation of a final report for each file in the 'Output' directory using the specified model and system instructions. The function supports multiple model types (e.g., 'gemini', 'gpt', 'o1', 'o3', 'o4-mini') and moves processed files to the 'Processed' subdirectory. This function is intended for batch processing of output files and assumes the presence of required report generation classes and a valid directory structure.
+
+    ### 🖥️ Parameters
+        - `model` (`str`): The name of the model to use for report generation. Must include one of the supported model identifiers (e.g., 'gemini', 'gpt', 'o1', 'o3', 'o4-mini').
+        - `system_instruction` (`str`): Instruction string that guides the report generation process for the selected model.
+        - `reasoning_effort` (`str`, optional): The reasoning effort level for `GPT reasoning models - "o" series. Defaults to "medium"`.
+
+    ### 🔄 Returns
+        - `None`: This function performs file operations and report generation but does not return a value.
+
+    ### ⚠️ Raises
+        - `Exception`: Raised if an error occurs during report generation or file movement, with a descriptive message indicating the context and source of the error.
+
+    ### 💡 Example
+
+    >>> Generate_Final_Report('gemini', 'Summarize the case details')
+    # Processes all files in the 'Output' directory using the Gemini model and moves them to 'Processed'.
+    """
+
+
+    try:
+        output_items = [item for item in os.listdir("Output") if os.path.isfile(os.path.join("Output", item))]
+
+        if output_items:
+            if "gemini" in model:
+                for name in output_items:
+                     GeminiReport(name, model, system_instruction)
+                     shutil.move(os.path.join("Output", name), os.path.join("Output", "Processed", name))
+
+            elif "gpt" in model or "o1" in model or "o3" in model or "o4-mini" in model:
+                for name in output_items:
+                    GPTReport(name, model, system_instruction, reasoning_effort)
+                    shutil.move(os.path.join("Output", name), os.path.join("Output", "Processed", name))
+    except Exception as e:
+        print(f"Erro Detectado: {e}")

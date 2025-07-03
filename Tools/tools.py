@@ -5,6 +5,52 @@ import tiktoken
 from tqdm import tqdm
 import os
 
+def check_presence(number)->bool | str:
+    """
+    ### 🔍 check_presence
+    This function checks for the presence of a file with a specific identifier number in predefined directories.
+    It searches through files with extensions .PDF, .md, and .txt, extracting the relevant part of the filename
+    to match against the provided number. The function is useful for verifying the existence of files based on
+    a unique identifier within a structured directory setup.
+
+    ### 🖥️ Parameters
+        - `number` (`str`): The unique identifier to search for within the filenames. It should be a string
+          representation of the number.
+
+    ### 🔄 Returns
+        - `tuple` or `bool`: Returns a tuple (True, file_path) if the file is found, where `file_path` is the
+          full path to the file. Returns `False` if no matching file is found.
+
+    ### ⚠️ Raises
+        - `TypeError`: If the `number` parameter is not a string.
+
+    ### 💡 Example
+
+    >>> check_presence("12345678901234567890")
+    (True, 'Processos/12345678901234567890.PDF')
+    """
+    path_list =["Processos", "Output", "Reports"]
+    for path in path_list:
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                if file.endswith(".PDF"):
+                    name = f"{file[3:23]}"
+                    if name == number:
+                        if "Processed" in root:
+                            print(f"Arquivo {file} já processado", root)
+                            return True
+                        else:
+                            return False
+                elif file.endswith(".md"):
+                    file = file.split("_")[0]
+                    if file == number:
+                        return True
+                elif file.endswith(".txt"):
+                    file = file.split(".")[0]
+                    if file == number:
+                        return True
+    return False
+
 
 class ProgressBar:
 

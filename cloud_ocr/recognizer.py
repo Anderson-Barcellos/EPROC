@@ -10,58 +10,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from cloud_ocr import OCR
 from Tools import ProgressBar
 import shutil
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-def _process_page(page, page_num):
-    """
-    Process a single page with OCR
-    """
-    try:
-        return OCR(page, page_num)
-    except Exception as e:
-        print(f"Error processing page {page_num}: {str(e)}")
 
 
-def _process_pdf(file_path: str, output_path: str, max_workers: int =int(os.cpu_count()*2),) -> str:
-    """
-    Process a single PDF file and perform OCR on all its pages using multiple threads
-    """
-    total_text = []  # Using list for thread-safe append
-    document = fitz.open(file_path)
 
-    try:
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all pages to thread pool
-            future_to_page = {}
-            for page_num in range(len(document)):
-                future = executor.submit(_process_page, document[page_num], page_num)
-                future_to_page[future] = page_num
-
-            # Collect results as they complete
-            progress_pages = ProgressBar(len(document), "Processing pages", "pages")
-            for future in as_completed(future_to_page):
-                progress_pages.update(1)
-                page_num = future_to_page[future]
-                try:
-                    result = future.result()
-                    total_text.append((page_num, result))
-
-                except Exception as e:
-                    print(f"Error processing page {page_num}: {str(e)}")
-            progress_pages.close()
-        # Sort results by page number and join texts
-        final_text = "".join(text for _, text in sorted(total_text))
-
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(final_text)
-
-        return final_text
-    finally:
-        document.close()
-
-def Recognize() -> None:
+def Recognize() -> bool:
     """
     ### 📝 Recognize
     Coordinate the OCR process for PDF files located in the 'Processos' directory.
@@ -85,6 +43,55 @@ def Recognize() -> None:
     >>> Recognize()
     # Processes all PDF files in 'Processos' and outputs text files to 'Output'.
     """
+
+    def _process_page(page, page_num):
+        """
+        Process a single page with OCR
+        """
+        try:
+            return OCR(page, page_num)
+        except Exception as e:
+            print(f"Error processing page {page_num}: {str(e)}")
+
+    def _process_pdf(file_path: str, output_path: str, max_workers: int =int(os.cpu_count()*2),) -> str:
+        """
+        Process a single PDF file and perform OCR on all its pages using multiple threads
+        """
+        total_text = []  # Using list for thread-safe append
+        document = fitz.open(file_path)
+
+        try:
+
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all pages to thread pool
+                future_to_page = {}
+                for page_num in range(len(document)):
+                    future = executor.submit(_process_page, document[page_num], page_num)
+                    future_to_page[future] = page_num
+
+                # Collect results as they complete
+
+                for future in as_completed(future_to_page):
+                    page_num = future_to_page[future]
+                    try:
+                        result = future.result()
+                        total_text.append((page_num, result))
+
+                    except Exception as e:
+                        print(f"Error processing page {page_num}: {str(e)}")
+            # Sort results by page number and join texts
+            final_text = "".join(text for _, text in sorted(total_text))
+
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(final_text)
+
+            return final_text
+        finally:
+            document.close()
+
+
+
     try:
         if not os.path.exists("Processos"):
             raise FileNotFoundError("Directory 'Processos' not found")
@@ -97,23 +104,15 @@ def Recognize() -> None:
             progress_files = ProgressBar(len(files), "Processing files", "file")
             os.makedirs(os.path.join("Processos", "Processed"), exist_ok=True)
 
-            os.makedirs(os.path.join("Processos", "Processed"), exist_ok=True)
-
             for file in files:
+
                 try:
-                    name, _ = os.path.splitext(file)  # Extract filename without extension
                     file_path = os.path.join("Processos", file)
+                    name =  file[3:23]
                     output_path = os.path.join("Output", f"{name}.txt")
 
                     _process_pdf(file_path, output_path)
-                    shutil.move(
-                        file_path,
-                        os.path.join("Processos", "Processed", f"{name}.pdf"),
-                    )
-
-                    _process_pdf(file_path, output_path)
-                    dest = os.path.join("Processos", "Processed", f"{name}.pdf")
-                    shutil.move(file_path, dest)
+                    shutil.move(file_path, os.path.join("Processos", "Processed", f"{file}.pdf"))
                     progress_files.update(1)
 
                 except Exception as e:
@@ -127,26 +126,5 @@ def Recognize() -> None:
     finally:
         print("OCR process completed successfully")
         return True
-
-system_instruction = """
-"Você atuará como perito médico judicial, encarregado de analisar e resumir documentos médicos referentes a um processo previdenciário, objetivando a elaboração de um laudo técnico completo, preciso e coerente, que realce os aspectos periciais relevantes. Use as informações do documento disponibilizado e siga com rigor as instruções a seguir:
-
-Resumo Detalhado do Documento:
--Demanda Processual,
--Data de início da doença (DID),
--data de cessação do benefício (DCB),
--data de entrada do requerimento (DER) e
--data da última atividade profissional, incluindo detalhes adicionais pertinentes ao contexto pericial.
-
-Histórico Clínico do Autor
-Sua tarefa consiste em gerar um parágrafo estruturado, impessoal e profissional, simulando o estilo do perito médico ao redigir o corpo do laudo no dia da avaliação pericial. Utilize obrigatoriamente as informações específicas fornecidas pelo usuário sobre o quadro clínico do paciente, a impressão geral observada pelo perito e as possíveis causas consideradas pertinentes ao caso. Além disso, com base nas doenças mencionadas pelo perito, inclua brevemente os principais sinais e sintomas geralmente associados a essas condições de maneira genérica, enriquecendo o contexto clínico descrito. A narrativa deverá ser coesa, clara, objetiva e não ultrapassar 250 palavras. Redija o laudo com foco principal no quadro psiquiátrico, sua proporcionalidade entre os achados descritos pelo usuário e dados de documentos se presentes. Limite-se a descrever sintomas clínicos apresentados que podem  ocasionar secundariamente condições psiquiátricas. Destaque-se genericamente sintomas psiquiátricos. Nunca utilize nomes próprios. Adapta a linguagem para o ambiente jurídico.
-
-
-Documentos Médicos (Seção Mais Importante)
-Organize, de forma enumerada, cada atestado médico, informando o nome do profissional emissor, a data do documento, o CID e as principais informações clínicas. Verifique se cada atestado reúne as informações básicas para subsidiar a perícia, lembrando que avaliações feitas pelo INSS não devem ser consideradas documentos médicos.
-
-Conclusão Pericial
-Fundamente, com objetividade, se o autor apresenta incapacidade total ou parcial, temporária ou permanente, sempre relacionando a conclusão aos achados clínicos e aos dados coletados ao longo da análise."
-"""
 
 

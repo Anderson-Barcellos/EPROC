@@ -19,16 +19,15 @@ do módulo 'models'.
 """
 
 from .models import (
-    count_tokens,
     MiniTemplate,
     GeminiReport,
-    GPTReport
+    GPTReport,
+    Generate_Final_Report
 )
 
 __all__ = [
-    'count_tokens',
     'MiniTemplate',
     'GeminiReport',
     'GPTReport',
-
+    'Generate_Final_Report'
 ]
