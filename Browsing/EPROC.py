@@ -25,14 +25,14 @@ chrome_options.add_experimental_option(
         "plugins.disabled": ["Chrome PDF Viewer"],
         "download.directory_upgrade": True,
         "plugins.always_open_pdf_externally": True,
-        "download.default_directory": os.path.join(user_home, "Downloads")  # Diretório de download padrão
+        "download.default_directory": os.path.join(user_home, "Downloads"),  # Diretório de download padrão
     }
 )
 
-# Iniciar o driver do Chrome
-driver = webdriver.Chrome(options=chrome_options)
+# Iniciar o driver do Chrome#
+#driver = webdriver.Chrome(options=chrome_options)
 
-def clicar_botao_generico(botao_id, nome_botao):
+def clicar_botao_generico(driver, botao_id, nome_botao):
     try:
         botao = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.ID, botao_id))
@@ -48,7 +48,7 @@ def clicar_botao_generico(botao_id, nome_botao):
         return False
 
 # Função para lidar com alertas
-def handle_alert():
+def handle_alert(driver):
     try:
         alert = WebDriverWait(driver, 5).until(EC.alert_is_present())
         alert_text = alert.text
@@ -59,24 +59,44 @@ def handle_alert():
         return False
 
 
-def tentar_login_automatico(usuario, senha):
+def tentar_login_automatico(driver, usuario, senha):
     try:
         # Esperar pelo campo de usuário
-        campo_usuario = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "txtUsuario"))
-        )
+        if driver.find_element(By.ID, "username"):
+            campo_usuario = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, "username"))
+            )
+        elif driver.find_element(By.ID, "txtUsuario"):
+            campo_usuario = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, "txtUsuario"))
+            )
+        else:
+            print("Não foi possível encontrar o campo de usuário.")
+            return False
         campo_usuario.clear()
         campo_usuario.send_keys(usuario)
 
         # Encontrar e preencher o campo de senha
-        campo_senha = driver.find_element(By.ID, "pwdSenha")
+        if driver.find_element(By.ID, "password"):
+            campo_senha = driver.find_element(By.ID, "password")
+        elif driver.find_element(By.ID, "pwdSenha"):
+            campo_senha = driver.find_element(By.ID, "pwdSenha")
+        else:
+            print("Não foi possível encontrar o campo de senha.")
+            return False
         campo_senha.clear()
         campo_senha.send_keys(senha)
 
 
 
         # Clicar no botão de login
-        botao_login = driver.find_element(By.ID, "sbmEntrar")
+        if driver.find_element(By.ID, "kc-login"):
+            botao_login = driver.find_element(By.ID, "kc-login")
+        elif driver.find_element(By.ID, "sbmEntrar"):
+            botao_login = driver.find_element(By.ID, "sbmEntrar")
+        else:
+            print("Não foi possível encontrar o botão de login.")
+            return False
         botao_login.click()
 
         alert = WebDriverWait(driver, 10).until(EC.alert_is_present())
@@ -96,7 +116,7 @@ def tentar_login_automatico(usuario, senha):
 
 
 # Função para pesquisar um processo
-def pesquisar_processo(numero_processo):
+def pesquisar_processo(driver, numero_processo):
     try:
         campo_pesquisa = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.ID, "txtNumProcessoPesquisaRapida"))
@@ -110,7 +130,7 @@ def pesquisar_processo(numero_processo):
 
 
 # Função para clicar no botão de download
-def clicar_botao_download():
+def clicar_botao_download(driver):
     try:
         botao_download = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.ID, "btnDownloadCompletoRS"))
@@ -124,23 +144,23 @@ def clicar_botao_download():
 
 
 # Função para clicar no botão "Gerar"
-def clicar_botao_gerar():
-    return clicar_botao_generico("btnGerar", "Gerar")
+def clicar_botao_gerar(driver):
+    return clicar_botao_generico(driver, "btnGerar", "Gerar")
 
 
 # Função para esperar a mudança na página
-def esperar_arquivo_pronto():
+def esperar_arquivo_pronto(driver):
     print("Aguardando a geração do arquivo...")
     start_time = time.time()
     timeout = 120  # 2 minutos
 
     while time.time() - start_time < timeout:
         try:
-            if clicar_botao_generico("lblBaixar", "Baixar"):
+            if clicar_botao_generico(driver, "lblBaixar", "Baixar"):
                 print("Arquivo gerado e pronto para download.")
                 return True
 
-            if clicar_botao_generico("btnGerar", "Gerar"):
+            if clicar_botao_generico(driver, "btnGerar", "Gerar"):
                 print("Aguardando o arquivo ficar pronto")
                 return False
 
@@ -151,7 +171,7 @@ def esperar_arquivo_pronto():
     print("Tempo limite excedido. O arquivo não foi gerado após 2 minutos.")
     return False
 
-def processar_numero(numero_processo):
+def processar_numero(driver, numero_processo):
     print(f"\nProcessando número: {numero_processo}")
     max_tentativas = 3
     tentativa = 0
@@ -160,19 +180,19 @@ def processar_numero(numero_processo):
         tentativa += 1
         print(f"Tentativa {tentativa} de {max_tentativas}")
 
-        pesquisar_processo(numero_processo)
+        pesquisar_processo(driver, numero_processo)
         time.sleep(3)
-        clicar_botao_download()
+        clicar_botao_download(driver)
         time.sleep(3)
 
-        if not clicar_botao_gerar():
+        if not clicar_botao_gerar(driver):
             print("Botão Gerar não encontrado, arquivo pode já estar pronto")
-            if clicar_botao_baixar():
+            if clicar_botao_baixar(driver):
                 print(f"Processo {numero_processo} concluído. O arquivo deve estar sendo baixado.")
                 return
         else:
             print("Arquivo não estava pronto, aguardando geração...")
-            if esperar_arquivo_pronto():
+            if esperar_arquivo_pronto(driver):
                 print(f"Processo {numero_processo} concluído. O arquivo deve estar sendo baixado.")
                 return
 
@@ -181,8 +201,8 @@ def processar_numero(numero_processo):
     print(f"Não foi possível baixar o arquivo para o processo {numero_processo} após {max_tentativas} tentativas.")
 
 # Adicione esta função
-def clicar_botao_baixar():
-    return clicar_botao_generico("lblBaixar", "Baixar")
+def clicar_botao_baixar(driver):
+    return clicar_botao_generico(driver, "lblBaixar", "Baixar")
 
 # Lista de números de processos
 
@@ -215,7 +235,7 @@ def EPROC_Download(numeros_processos: list):
             >>> EPROC_Download(["50008601220254047106", "50008515020254047106"])
             True
     """
-
+    driver = webdriver.Chrome(options=chrome_options)
     # Abrir o site que requer autenticação
     driver.get("https://eproc.jfrs.jus.br/eprocV2/")
 
@@ -225,7 +245,7 @@ def EPROC_Download(numeros_processos: list):
     senha = "*Andi009134"  # Substitua com sua senha real
     presence = lambda x:os.path.exists(os.path.join(".", x))
 
-    if tentar_login_automatico(usuario, senha):
+    if tentar_login_automatico(driver,  usuario, senha):
         print("Login automático bem-sucedido. Continuando com o processamento.")
 
     # Esperar um pouco para a página carregar
@@ -243,7 +263,7 @@ def EPROC_Download(numeros_processos: list):
     # Iterar sobre a lista de números de processos
     for numero in numeros_processos:
         if not presence(numero):
-            processar_numero(numero)
+            processar_numero(driver, numero)
             time.sleep(5)  # Pequena pausa entre processos
         else:
             print(f"Arquivo {numero} já existe. Pulando...")

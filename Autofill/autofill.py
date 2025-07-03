@@ -6,16 +6,18 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 import os
 import time
-from selenium.webdriver.support.ui import Select
 from selenium import webdriver
 import json
-from Models import MiniTemplate
+from Models.models import MiniTemplate
 from threading import Event
 import traceback
 from selenium.webdriver.common.action_chains import ActionChains
 import shutil
 from selenium.webdriver.support.ui import Select
 from selenium.common.exceptions import NoSuchElementException
+import sys
+
+
 
 def selecionar_parte_se_necessario(driver):
 
@@ -48,9 +50,9 @@ def selecionar_parte_se_necessario(driver):
                     }
                 }
 
-                if (opcoesValidas.length >= 2) {
+                if (opcoesValidas.length > 1) {
                     // Seleciona a segunda opção válida
-                    var segundaOpcao = opcoesValidas[1];
+                    var segundaOpcao = opcoesValidas[0];
                     console.log('Selecionando segunda opção válida:', segundaOpcao.option.text);
                     selectElement.selectedIndex = segundaOpcao.index;
                     selectElement.value = segundaOpcao.option.value;
@@ -626,7 +628,8 @@ def press_ctrl_shift_l(driver):
 
 def processar_laudo(driver, numero, model: str):
     try:
-        report_path = os.path.join("Reports", f"{numero}_final_report.md")
+        print(numero)
+        report_path = f"Reports/{numero}_final_report.md"
         # Create a new Event object for each process
         template_event = Event()
         # Initialize template with the event
@@ -746,3 +749,4 @@ def main(driver, numero):
         processar_laudo(driver, numero, "gpt-4.1")
     except Exception as e:
         print(f"Ocorreu um erro: {str(e)}")
+
