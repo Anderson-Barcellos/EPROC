@@ -1,3 +1,21 @@
 {
-    "json": {    }
+    "json": {
+        "FormacaoTecnicoProfissional": "Contribuinte individual (MEI), manicure autônoma",
+        "UltimaAtividade": "Manicure autônoma",
+        "TarefasExigidasUltimaAtividade": "Não especificado",
+        "QuantoTempoUltimaAtividade": "Não especificado",
+        "AteQuandoUltimaAtividade": "10/2024",
+        "ExperienciasLaboraisAnt": "-------",
+        "MotivoIncapacidade": "Transtorno obsessivo-compulsivo",
+        "HistoricoAnamnese": "Paciente relata início dos sintomas obsessivo-compulsivos aos 8 anos, com agravamento importante após o falecimento materno em 2016. Desde então, apresenta quadro grave e refratário, com obsessões de contaminação e compulsões de limpeza, sofrimento psíquico intenso, prejuízo funcional e social. Está em acompanhamento psiquiátrico regular, faz uso de antidepressivos em doses elevadas, sem resposta clínica satisfatória e sem previsão de alta. Atualmente, encontra-se incapaz para exercer sua atividade habitual de manicure autônoma.",
+        "DocumentosMedicosAnalisados": "1. Atestado Médico: Data: 25/11/2024 - Médico: Dra. Victoria Venturini Silva (CRM-RS 51746)\nCID: F42 (Transtorno obsessivo-compulsivo)\nInformações: Acompanhamento regular, uso de fluoxetina 100mg/dia e bupropiona 150mg/dia, sintomas graves persistentes, sem previsão de alta.\n\n2. Relatório Médico: Data: 12/09/2024 - Médico: Dra. Victoria Venturini Silva (CRM-RS 51746)\nCID: F42 (Transtorno obsessivo-compulsivo)\nInformações: Incapacidade laborativa documentada, prejuízo funcional relevante, acompanhamento psiquiátrico contínuo.\n\n3. Laudo Pericial Administrativo: Data: 12/09/2024 - Médico: Não informado\nCID: F42 (Transtorno obsessivo-compulsivo)\nInformações: Reconhecimento de incapacidade laborativa, benefício concedido.\n\n4. Laudo Pericial Administrativo: Data: 04/03/2020 - Médico: Não informado\nCID: Z03 (Observação médica e avaliação)\nInformações: Indeferimento por ausência de incapacidade laborativa.\n\n5. Relatório Médico: Data: 09/08/2024 - Médico: Dra. Victoria Venturini Silva (CRM-RS 51746)\nCID: F42 (Transtorno obsessivo-compulsivo)\nInformações: Sintomas persistentes, prejuízo funcional, necessidade de tratamento contínuo.",
+        "ExameFisicoMental": "Estado geral: Lúcida, orientada, pensamento lógico, memória preservada, bom cuidado com higiene e aparência. Sintomas psiquiátricos: Humor deprimido, ansiedade, agitação, labilidade emocional, compulsões de limpeza, prejuízo na autonomia e na capacidade de organização da rotina. Capacidade funcional: Relato de dedicação de muitas horas do dia a rituais de limpeza, impossibilidade de manter rotina produtiva, prejuízo nas relações sociais e familiares, dependência econômica.",
+        "CONCLUSAO PERICIAL": "Concluo que VENASIA MILDA DRESCHER apresenta incapacidade total e temporária para o exercício de sua atividade laboral habitual (manicure autônoma), decorrente de transtorno psiquiátrico grave (Transtorno Obsessivo-Compulsivo, CID-10: F42), desde pelo menos 09/08/2024, com necessidade de continuidade do tratamento especializado e reavaliação periódica.",
+        "DCB": "09/11/2024",
+        "DID": "2016",
+        "DER": "30/10/2024",
+        "DAP": "10/2024",
+        "CausaProvavelDiagnostico": "Adquirida",
+        "CIF": ""
+    }
 }

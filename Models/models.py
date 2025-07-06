@@ -39,81 +39,7 @@ results = {}
 gemini_key = os.environ.get("GEMINI_API_KEY")
 openai_key = os.environ.get("OPENAI_API_KEY")
 
-def test_api_keys(verbose: bool = True):
-    """
-    ### 🧪 test_api_keys
-    Tests the presence and functionality of the OpenAI and Gemini API keys, printing detailed and user-friendly results.
-    This function checks for the presence of the keys in environment variables and attempts a minimal API call to validate each key.
 
-    ### 🖥️ Parameters
-        - `verbose` (`bool`, optional): If True, prints detailed results to the console. Defaults to True.
-
-    ### 🔄 Returns
-        - `dict`: Dictionary containing status information for each API key:
-            - 'openai': {'present': bool, 'valid': bool, 'error': str or None}
-            - 'gemini': {'present': bool, 'valid': bool, 'error': str or None}
-
-    ### ⚠️ Raises
-        - `Exception`: If an unexpected error occurs during the API validation process.
-
-    ### 💡 Example
-
-    >>> test_api_keys()
-    [OpenAI] Presente: ✅ | Funcional: ✅
-    [Gemini] Presente: ❌ | Funcional: ❌
-
-    """
-    result = {
-        'openai': {'present': False, 'valid': False, 'error': None},
-        'gemini': {'present': False, 'valid': False, 'error': None}
-    }
-
-    # Check OpenAI API key
-    print("\n🔎 Checando variáveis de ambiente para APIs...\n")
-    if openai_key:
-        result['openai']['present'] = True
-        print("[OpenAI] Presença da variável: ✅")
-        try:
-            client = OpenAI(api_key=openai_key)
-            _ = client.models.list()
-            result['openai']['valid'] = True
-            print("[OpenAI] Teste de funcionalidade: ✅ (Chave válida e funcional)")
-        except Exception as e:
-            result['openai']['error'] = str(e)
-            print(f"[OpenAI] Teste de funcionalidade: ❌ (Erro: {e})")
-    else:
-        print("[OpenAI] Presença da variável: ❌ (Chave não encontrada)")
-        print("[OpenAI] Teste de funcionalidade: ❌ (Não testado)")
-
-    print("-" * 50)
-
-    # Check Gemini API key
-    if gemini_key:
-        result['gemini']['present'] = True
-        print("[Gemini] Presença da variável: ✅")
-        try:
-            genai.configure(api_key=gemini_key)
-            _ = genai.list_models()
-            result['gemini']['valid'] = True
-            print("[Gemini] Teste de funcionalidade: ✅ (Chave válida e funcional)")
-        except Exception as e:
-            result['gemini']['error'] = str(e)
-            print(f"[Gemini] Teste de funcionalidade: ❌ (Erro: {e})")
-    else:
-        print("[Gemini] Presença da variável: ❌ (Chave não encontrada)")
-        print("[Gemini] Teste de funcionalidade: ❌ (Não testado)")
-
-    print("\nResumo dos testes de API:")
-    for api in ['openai', 'gemini']:
-        pres = "✅" if result[api]['present'] else "❌"
-        valid = "✅" if result[api]['valid'] else "❌"
-        print(f"  [{api.upper()}] Presente: {pres} | Funcional: {valid}")
-        if result[api]['error']:
-            print(f"    ↳ Erro: {result[api]['error']}")
-
-    return result
-
-print(test_api_keys())
 
 genai.configure(api_key=gemini_key) #!CHECK IF THIS IS NEEDED
 
@@ -449,7 +375,7 @@ def GeminiReport(name: str, model_name: str, system_instruction: str, threaded: 
             start_time = time.time()
             try:
                 print("Generating content...")
-                response = model.generate_content(f"DOCUMENTO:{content}")
+                response = model.generate_content( f"DOCUMENTO:{content}")
                 if response:
                     print("Content generated. Processing response...")
                     answer = response.text
