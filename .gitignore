@@ -1,6 +1,6 @@
 
 # Ignore generated files
-
+.vscode/*
 __pycache__/
 # Ignore contents of Processos/Processed except .gitkeep
 Processos/*
