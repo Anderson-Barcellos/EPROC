@@ -1,18 +1,42 @@
 
 # Ignore generated files
+
+__pycache__/
+# Ignore contents of Processos/Processed except .gitkeep
 Processos/*
 !Processos/.gitkeep
+Processos/Processed/*
+!Processos/Processed/.gitkeep
+
 Output/*
 !Output/.gitkeep
 Output/Processed/*
 !Output/Processed/.gitkeep
+
 Reports/*
 !Reports/.gitkeep
-!Reports/Processed/
 Reports/Processed/*
 !Reports/Processed/.gitkeep
-__pycache__/
-# Ignore contents of Processos/Processed except .gitkeep
-Processos/Processed/*
-!Processos/Processed/.gitkeep
+
+# Ignore files
+
+.cursorignore
+key.json
+*.md
+*.pdf
+*.csv
+*.txt
+
+# Files that should not be ignored
+!README.md
+!requirements.txt
+!.gitignore
+
+
+
+
+
+
+
+
 

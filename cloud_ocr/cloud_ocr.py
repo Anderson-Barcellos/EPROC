@@ -8,14 +8,15 @@ import json
 import os
 from pathlib import Path
 
-# GLOBAL VARIABLES
+
+
+#GLOBAL VARIABLES
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 key = {}
 
-# Google Cloud Vision API credentials is a JSON file that you need to provide.
 try:
-    key_path = "Your_Path/key.json"  # Update this path to your key.json file
+    key_path = "D:/OneDrive/Área de Trabalho/Complementares/cloud_ocr/key.json"
     with open(key_path, "r") as file:
         key = json.load(file)
 except Exception as e:
@@ -92,30 +93,8 @@ def OCR(page: fitz.Page, page_num: int, thread: bool = False) -> str:
 
 def OCR_Single_Image(path: str) -> str:
     """
-    Performs OCR on a single image using Google Cloud Vision API.
-    Args:
-        path (str): The path to the image file.
-    Returns:
-        str: The extracted text from the image.
-    Raises:
-        Exception: If there is an error processing the image.
-    Example:
-        ```python
-        text = OCR_Single_Image("path/to/your/image.png")
-        print(text)
-        ```
-    🎉 Functionality:
-        - Opens the image from the given path.
-        - Saves the image to a temporary file.
-        - Reads the image content.
-        - Sends the image to Google Cloud Vision API for text detection.
-        - Returns the extracted text.
-        - Cleans up the temporary file.
-    🤔 Error Handling:
-        - Prints an error message if any exception occurs during image processing.
-        - Re-raises the exception for further handling.
+    OCRs a single image using Google Cloud Vision API.
     """
-
     try:
         img = Image.open(path)
         temp_image_path = os.path.join("Temp",f"page.png")
@@ -131,4 +110,4 @@ def OCR_Single_Image(path: str) -> str:
         raise
 
 
-
+# print(__file__)
