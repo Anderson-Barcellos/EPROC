@@ -17,8 +17,6 @@ from selenium.webdriver.support.ui import Select
 from selenium.common.exceptions import NoSuchElementException
 import sys
 
-import sys
-
 # ===== ADICIONAR ESTAS FUNÇÕES DE VALIDAÇÃO AQUI =====
 def validar_estrutura_json(laudos):
     """Valida se o JSON possui a estrutura esperada"""
