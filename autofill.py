@@ -6,7 +6,6 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 import os
 import time
-from selenium import webdriver
 import json
 from Models.models import MiniTemplate
 from threading import Event
@@ -15,9 +14,6 @@ from selenium.webdriver.common.action_chains import ActionChains
 import shutil
 from selenium.webdriver.support.ui import Select
 from selenium.common.exceptions import NoSuchElementException
-import sys
-
-import sys
 
 # ===== ADICIONAR ESTAS FUNÇÕES DE VALIDAÇÃO AQUI =====
 def validar_estrutura_json(laudos):
