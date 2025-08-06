@@ -28,21 +28,24 @@ import time
 from threading import Event
 import sys
 import shutil
+import base64
+from google.genai import types
+from google.genai.client import Client
+
 
 # Add the parent directory to path so Python can find your modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 # GLOBALS
-save_path = os.path.join(".", "Reports")
-results = {}
-gemini_key = os.environ.get("GEMINI_API_KEY")
-openai_key = os.environ.get("OPENAI_API_KEY")
+
+gemini_key:str | None = os.environ.get("GEMINI_API_KEY")
+openai_key:str | None = os.environ.get("OPENAI_API_KEY")
 
 
-
-genai.configure(api_key=gemini_key) #!CHECK IF THIS IS NEEDED
-
+if gemini_key:
+    genai.configure(api_key=gemini_key) # type: ignore[attr-defined]
+#!GENERATION CONFIG
 generation_config = {
  "temperature": 0.7,
   "top_p": 0.95,
@@ -53,9 +56,44 @@ generation_config = {
 
 # Adicione uma variável global para controlar o estado do template
 template_ready = Event()
-
 client = OpenAI(api_key=openai_key)
 
+def markdown_to_text(markdown_content):
+    """
+    Function to convert markdown content to plain text.
+    #### Parameters:
+    - markdown_content: str: The markdown content to be converted.
+
+    #### Returns:
+    - str: The plain text content.
+    """
+    import re
+
+    # Remove markdown headers
+    plain_text = re.sub(r'#+ ', '', markdown_content)
+    # Remove markdown links
+    plain_text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', plain_text)
+    # Remove markdown images
+    plain_text = re.sub(r'!\[([^\]]*)\]\([^\)]+\)', r'\1', plain_text)
+    # Remove markdown bold and italic
+    plain_text = re.sub(r'\*\*([^\*]+)\*\*', r'\1', plain_text)
+    plain_text = re.sub(r'\*([^\*]+)\*', r'\1', plain_text)
+    plain_text = re.sub(r'__([^_]+)__', r'\1', plain_text)
+    plain_text = re.sub(r'_([^_]+)_', r'\1', plain_text)
+    # Remove markdown code blocks
+    plain_text = re.sub(r'```([^`]+)```', r'\1', plain_text)
+    plain_text = re.sub(r'`([^`]+)`', r'\1', plain_text)
+    # Remove markdown blockquotes
+    plain_text = re.sub(r'> ', '', plain_text)
+    # Remove markdown horizontal rules
+    plain_text = re.sub(r'---', '', plain_text)
+    # Remove markdown lists
+    plain_text = re.sub(r'^\s*[-*+] ', '', plain_text, flags=re.MULTILINE)
+    plain_text = re.sub(r'^\s*\d+\.\s+', '', plain_text, flags=re.MULTILINE)
+    # Remove extra newlines
+    plain_text = re.sub(r'\n+', '\n', plain_text)
+
+    return plain_text
 
 def GPTReport(name: str, model: str, system_instruction: str, reasoning_effort: str = "medium", threaded: bool = False):
     """### 📝 GPTReport
@@ -447,3 +485,51 @@ def Generate_Final_Report(model, system_instruction, reasoning_effort: str = "me
                     shutil.move(os.path.join("Output", name), os.path.join("Output", "Processed", name))
     except Exception as e:
         print(f"Erro Detectado: {e}")
+
+def Gemini_PDF_Report(model:str, system_instruction:str, file:str)-> None:
+    """
+    ### 📄 Gemini_Generate_Report
+    Generates a final report for a given file using the Gemini model.
+    """
+    parts = []
+    name: str = file.split("-")[1]
+    print("File Name is: ", name)
+
+    with open(file, "rb") as f:
+        parts.append(types.Part.from_bytes(
+        mime_type="application/pdf",
+        data=base64.b64encode(f.read()).decode("utf-8"),
+        ))
+
+    try:
+        print("Sending request to Gemini model...")
+        contents = [
+            types.Content(
+                role="user",
+                parts=parts,
+            ),
+        ]
+        generate_content_config = types.GenerateContentConfig(
+            temperature=0.6,
+            thinking_config = types.ThinkingConfig(
+                thinking_budget=32768,
+            ),
+            response_mime_type="text/plain",
+            system_instruction=system_instruction,
+        )
+        gemini_client = Client(api_key=gemini_key)
+
+        response = gemini_client.models.generate_content(
+            model=model,
+            contents=contents,
+            config=generate_content_config,
+        )
+        if response:
+            print("Response received from Gemini model...")
+            answer = response.text
+            with open(os.path.join(".", "Reports", f"{name}_final_report.md"), "w", encoding="utf-8") as f:
+                f.write(markdown_to_text(answer))
+            print("Report saved successfully")
+
+    except Exception as e:
+        print(f"Error generating report: {str(e)}")

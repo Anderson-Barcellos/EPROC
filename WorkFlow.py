@@ -1,13 +1,13 @@
 import os
 import shutil
 from Models.models import  Generate_Final_Report
-from cloud_ocr.recognizer import Recognize
-from Autofill.run_one_at_time import run_processes_sequentially
 from Browsing.EPROC import EPROC_Download
 import yaml
 import os
-from Tools import check_presence
+from cloud_ocr.recognizer import Recognize
 from openai import OpenAI
+from Models import Gemini_PDF_Report, GeminiReport
+
 openai_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_key)
 
@@ -29,16 +29,14 @@ def load_PROMPT():
 
 data = load_PROMPT()
 #Load the prompts
-advanced_prompt = data["Advanced_Prompt"]
-legacy_prompt = data["Legacy_Prompt"]
-middle_prompt = data["Middle_Prompt"]
-ultimate_prompt = data["Ultimate_Prompt"]
+spmja_1= data["SPMJA_1.0"]
+spmja_2= data["SPMJA_2.0"]
+if Recognize():
+    for file in os.listdir("Output"):
+        if file.endswith("txt"):
+            GeminiReport(name = file, model_name="gemini-2.5-pro", system_instruction=spmja_1)
 
 
+from run_one_at_time import run_processes_sequentially
+run_processes_sequentially()
 
-
-#List of Suit Numbers
-suit_numbers = []
-
-#Load the suits in the Processos folder
-in_place_suits = [processo[3:23] for processo in os.listdir("Processos") if processo.endswith(".PDF") or processo.endswith(".pdf")]
