@@ -12,7 +12,7 @@ from Tools import ProgressBar
 import shutil
 import sys
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 
 
@@ -93,9 +93,7 @@ def Recognize() -> bool:
 
 
     try:
-        if not os.path.exists("Processos"):
-            raise FileNotFoundError("Directory 'Processos' not found")
-        files = [f for f in os.listdir("Processos") if f.lower().endswith('.pdf')]
+        files = [f for f in os.listdir("Processos") if  f.endswith('.PDF')]
 
         if len(files) == 0:
             raise FileNotFoundError("No PDF files found in 'Processos' directory")
@@ -112,7 +110,10 @@ def Recognize() -> bool:
                     output_path = os.path.join("Output", f"{name}.txt")
 
                     _process_pdf(file_path, output_path)
-                    shutil.move(file_path, os.path.join("Processos", "Processed", f"{file}.pdf"))
+                    if os.path.exists(output_path):
+                        shutil.move(file_path, os.path.join("Processos", "Processed", f"2-{file}"))
+                    else:
+                        shutil.move(file_path, os.path.join("Processos", "Processed", f"1-{file}"))
                     progress_files.update(1)
 
                 except Exception as e:
