@@ -11,10 +11,8 @@ from cloud_ocr import OCR
 from Tools import ProgressBar
 import shutil
 import sys
-from Tools.tools import SimplePushbullet
 
-bullet = SimplePushbullet()
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 
 
@@ -95,19 +93,15 @@ def Recognize() -> bool:
 
 
     try:
-        if not os.path.exists("Processos"):
-            raise FileNotFoundError("Directory 'Processos' not found")
-        files = [f for f in os.listdir("Processos") if f.lower().endswith('.pdf')]
+        files = [f for f in os.listdir("Processos") if  f.endswith('.PDF')]
 
         if len(files) == 0:
             raise FileNotFoundError("No PDF files found in 'Processos' directory")
 
         else:
-            number_of_files = len(files)
-            current_file = 0
-            progress_files = ProgressBar(number_of_files, "Processing files", "file")
+            progress_files = ProgressBar(len(files), "Processing files", "file")
             os.makedirs(os.path.join("Processos", "Processed"), exist_ok=True)
-            bullet.push("Recognizer:", "Iniciando reconhecimento de processos")
+
             for file in files:
 
                 try:
@@ -116,16 +110,16 @@ def Recognize() -> bool:
                     output_path = os.path.join("Output", f"{name}.txt")
 
                     _process_pdf(file_path, output_path)
-                    shutil.move(file_path, os.path.join("Processos", "Processed", f"{file}.pdf"))
+                    if os.path.exists(output_path):
+                        shutil.move(file_path, os.path.join("Processos", "Processed", f"2-{file}"))
+                    else:
+                        shutil.move(file_path, os.path.join("Processos", "Processed", f"1-{file}"))
                     progress_files.update(1)
-                    current_file += 1
-                    percentage_complete = (current_file / number_of_files) * 100
-                    bullet.push("Recognizer:", f"Reconhecendo processo {percentage_complete:.2f}%")
 
                 except Exception as e:
                     print(f"Error processing file {file}: {str(e)}")
             progress_files.close()
-            bullet.push("Recognizer:", "Reconhecimento de processos concluído")
+
 
     except Exception as e:
         print(f"Critical error in main process: {str(e)}")

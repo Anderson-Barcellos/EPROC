@@ -22,12 +22,14 @@ from .models import (
     MiniTemplate,
     GeminiReport,
     GPTReport,
-    Generate_Final_Report
+    Generate_Final_Report,
+    Gemini_PDF_Report
 )
 
 __all__ = [
     'MiniTemplate',
     'GeminiReport',
     'GPTReport',
-    'Generate_Final_Report'
+    'Generate_Final_Report',
+    'Gemini_PDF_Report'
 ]
