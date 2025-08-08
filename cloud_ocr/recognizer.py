@@ -11,7 +11,9 @@ from cloud_ocr import OCR
 from Tools import ProgressBar
 import shutil
 import sys
+from Tools.tools import SimplePushbullet
 
+bullet = SimplePushbullet()
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -101,9 +103,11 @@ def Recognize() -> bool:
             raise FileNotFoundError("No PDF files found in 'Processos' directory")
 
         else:
-            progress_files = ProgressBar(len(files), "Processing files", "file")
+            number_of_files = len(files)
+            current_file = 0
+            progress_files = ProgressBar(number_of_files, "Processing files", "file")
             os.makedirs(os.path.join("Processos", "Processed"), exist_ok=True)
-
+            bullet.push("Recognizer:", "Iniciando reconhecimento de processos")
             for file in files:
 
                 try:
@@ -114,11 +118,14 @@ def Recognize() -> bool:
                     _process_pdf(file_path, output_path)
                     shutil.move(file_path, os.path.join("Processos", "Processed", f"{file}.pdf"))
                     progress_files.update(1)
+                    current_file += 1
+                    percentage_complete = (current_file / number_of_files) * 100
+                    bullet.push("Recognizer:", f"Reconhecendo processo {percentage_complete:.2f}%")
 
                 except Exception as e:
                     print(f"Error processing file {file}: {str(e)}")
             progress_files.close()
-
+            bullet.push("Recognizer:", "Reconhecimento de processos concluído")
 
     except Exception as e:
         print(f"Critical error in main process: {str(e)}")

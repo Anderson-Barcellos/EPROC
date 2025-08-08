@@ -12,11 +12,10 @@ from pathlib import Path
 
 #GLOBAL VARIABLES
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 key = {}
 
 try:
-    key_path = "D:/OneDrive/Área de Trabalho/Complementares/cloud_ocr/key.json"
+    key_path = f"{os.getcwd()}/cloud_ocr/key.json"
     with open(key_path, "r") as file:
         key = json.load(file)
 except Exception as e:

@@ -198,3 +198,254 @@ def count_tokens(file_path, model_name, mode):
         raise RuntimeError(f"Erro ao contar tokens: {str(e)}")
 
 
+#!/usr/bin/env python3
+"""
+SimplePushbullet - Uma implementação minimalista e elegante para envio de notificações
+Autor: Script criado para Anders
+Data: Agosto 2025
+Descrição: Este script implementa uma única classe que simplifica drasticamente
+           o uso da API do Pushbullet, reduzindo toda a complexidade a um método simples.
+"""
+
+import requests
+import json
+from typing import Optional, Dict, Any
+from datetime import datetime
+import os
+
+
+class SimplePushbullet:
+    """
+    📲 SimplePushbullet
+    A minimalist class designed to interact with the Pushbullet API. This implementation emphasizes maximum simplicity: one token, one method, zero complications. All the magic happens internally, keeping the interface clean and intuitive.
+
+    ### 🖥️ Parameters
+    - `token` (`str`, optional): The API token for authentication. Can be passed directly or set as an environment variable `PUSHBULLET_TOKEN`. Defaults to a predefined token.
+
+    ### 🔄 Returns
+    - `None`: This class does not return a value but initializes an instance for API interaction.
+
+    ### ⚠️ Raises
+    - `ValueError`: If the token is not provided or is invalid.
+
+    ### 📚 Notes
+    - Ensure the token is kept secure and not hardcoded in production environments.
+    - The class automatically verifies the token upon initialization to prevent future errors.
+    """
+
+    def __init__(self, token = "o.5FFnilYMZeEtI82l0r9np7NUhmRcG8qp"):
+        """
+        Inicializa o cliente Pushbullet.
+
+        O token pode ser passado diretamente ou definido como variável de ambiente
+        PUSHBULLET_TOKEN. Isso te dá flexibilidade para não hardcodar credenciais
+        no código, mantendo tudo mais seguro.
+        """
+        self.token = token
+        if not self.token:
+            raise ValueError(
+                "Token não fornecido! Passe o token no construtor ou "
+                "defina a variável de ambiente PUSHBULLET_TOKEN"
+            )
+
+        # URL base da API - sempre a mesma, então deixamos como constante
+        self.base_url = "https://api.pushbullet.com/v2"
+
+        # Headers padrão para todas as requisições
+        self.headers = {
+            'Access-Token': self.token,
+            'Content-Type': 'application/json'
+        }
+
+        # Vamos verificar se o token é válido logo na inicialização
+        self._verify_token()
+
+    def _verify_token(self) -> None:
+        """
+        Verifica se o token é válido fazendo uma requisição simples à API.
+
+        Isso evita surpresas mais tarde - melhor descobrir agora se algo está errado
+        do que quando tu realmente precisar enviar uma notificação importante.
+        """
+        try:
+            response = requests.get(
+                f"{self.base_url}/users/me",
+                headers=self.headers,
+                timeout=10
+            )
+            if response.status_code != 200:
+                raise ValueError(f"Token inválido ou erro na API: {response.status_code}")
+
+            # Aproveita e pega o nome do usuário para dar um feedback mais amigável
+            user_data = response.json()
+            self.user_email = user_data.get('email', 'Usuário')
+            print(f"✓ Conectado ao Pushbullet como: {self.user_email}")
+
+        except requests.exceptions.RequestException as e:
+            raise ConnectionError(f"Erro ao conectar com Pushbullet: {e}")
+
+    def push(self,
+             text: str,
+             title: Optional[str] = None,
+             url: Optional[str] = None) -> Dict[str, Any]:
+        """
+        ## 📲 Push Notification
+        Sends a push notification using the Pushbullet API. This method allows you to send a message with an optional title and URL, handling the details of the API request for you.
+
+        ### 🖥️ Parameters
+            - `text` (`str`): The body of the message. This parameter is required.
+            - `title` (`str`, optional): The title of the notification. Defaults to "Notification".
+            - `url` (`str`, optional): A URL to open when the notification is clicked.
+
+        ### 🔄 Returns
+            - `Dict[str, Any]`: A dictionary containing the response data from the API, including the push ID if successful.
+
+        ### ⚠️ Raises
+            - `requests.exceptions.RequestException`: If there is an issue with the network request.
+
+        ### 💡 Example
+
+        >>> push("Hello World", title="Greeting", url="http://example.com")
+        {'iden': 'ujpah72o0sjAoR', ...}
+
+        ### 📚 Notes
+        - Ensure that the Pushbullet API token is valid and set before calling this method.
+        - The method handles both note and link types of pushes based on the presence of a URL.
+        """
+        # Define um título padrão se não foi fornecido
+        title = f"{title} - {datetime.now().strftime('%H:%M')}"
+
+        # Monta o payload baseado no tipo de push
+        if url:
+            # Push tipo link - abre uma URL quando clicado
+            payload = {
+                'type': 'link',
+                'title': title,
+                'body': text,
+                'url': url
+            }
+        else:
+            # Push tipo note - notificação simples de texto
+            payload = {
+                'type': 'note',
+                'body': text,
+                'title': title
+            }
+
+        try:
+            # Faz a requisição POST para criar o push
+            response = requests.post(
+                f"{self.base_url}/pushes",
+                headers=self.headers,
+                data=json.dumps(payload),
+                timeout=10
+            )
+
+            # Verifica se deu tudo certo
+            if response.status_code == 200:
+                result = response.json()
+                print(f"✓ Push enviado com sucesso! ID: {result.get('iden', 'N/A')}")
+                return result
+            else:
+                error_msg = f"Erro ao enviar push: {response.status_code}"
+                if response.text:
+                    try:
+                        error_data = response.json()
+                        error_msg += f" - {error_data.get('error_description', response.text)}"
+                    except:
+                        error_msg += f" - {response.text}"
+
+                print(f"✗ {error_msg}")
+                return {'error': error_msg, 'status_code': response.status_code}
+
+        except requests.exceptions.Timeout:
+            error_msg = "Timeout ao enviar push - a API demorou muito para responder"
+            print(f"✗ {error_msg}")
+            return {'error': error_msg}
+
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Erro de conexão: {e}"
+            print(f"✗ {error_msg}")
+            return {'error': str(e)}
+
+    def push_to_device(self,
+                       device_iden: str,
+                       text: str,
+                       title: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Envia uma notificação para um dispositivo específico.
+
+        Útil quando tu tem múltiplos dispositivos e quer direcionar a notificação
+        para apenas um deles - tipo mandar algo só pro teu celular, não pro tablet.
+
+        Args:
+            device_iden: Identificador do dispositivo
+            text: Corpo da mensagem
+            title: Título (opcional)
+
+        Returns:
+            Dict com a resposta da API
+        """
+        if title is None:
+            title = f"Notificação - {datetime.now().strftime('%H:%M')}"
+
+        payload = {
+            'type': 'note',
+            'title': title,
+            'body': text,
+            'device_iden': device_iden
+        }
+
+        try:
+            response = requests.post(
+                f"{self.base_url}/pushes",
+                headers=self.headers,
+                data=json.dumps(payload),
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                print(f"✓ Push enviado para dispositivo {device_iden}")
+                return result
+            else:
+                error_msg = f"Erro ao enviar para dispositivo: {response.status_code}"
+                print(f"✗ {error_msg}")
+                return {'error': error_msg}
+
+        except requests.exceptions.RequestException as e:
+            print(f"✗ Erro: {e}")
+            return {'error': str(e)}
+
+    def list_devices(self) -> list:
+        """
+        Lista todos os dispositivos conectados à conta.
+
+        Bem útil para descobrir o device_iden quando tu quer enviar
+        notificações direcionadas.
+        """
+        try:
+            response = requests.get(
+                f"{self.base_url}/devices",
+                headers=self.headers,
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                devices = response.json().get('devices', [])
+                active_devices = [d for d in devices if d.get('active')]
+
+                print(f"\n📱 Dispositivos ativos ({len(active_devices)}):")
+                for device in active_devices:
+                    print(f"  • {device.get('nickname', 'Sem nome')} "
+                          f"({device.get('model', 'Modelo desconhecido')}) "
+                          f"- ID: {device.get('iden')}")
+
+                return active_devices
+            else:
+                print(f"✗ Erro ao listar dispositivos: {response.status_code}")
+                return []
+
+        except requests.exceptions.RequestException as e:
+            print(f"✗ Erro: {e}")
+            return []

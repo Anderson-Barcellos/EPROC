@@ -24,21 +24,25 @@ chrome_profile = os.path.join(
     user_home, "Library", "Application Support", "Google", "Chrome", "Default"
 )
 
-chrome_options = Options()
-chrome_options.add_argument(f"user-data-dir={chrome_profile}")
+# Configurar as opções do Chrome
+def setup_chrome_options():
+    user_home = os.path.expanduser("~")
+    chrome_profile = os.path.join(user_home, "AppData", "Local", "Google", "Chrome", "Default")
+    chrome_options = Options()
+    chrome_options.add_argument(f"user-data-dir={chrome_profile}")
 
-# Adicionar configurações para forçar o download de PDFs
-chrome_options.add_experimental_option(
-    "prefs", {
-        "download.prompt_for_download": False,
-        "download.automatically_downloads": True,
-        "plugins.disabled": ["Chrome PDF Viewer"],
-        "download.directory_upgrade": True,
-        "plugins.always_open_pdf_externally": True,
-        "download.default_directory": os.path.join("D:\\OneDrive\\Área de Trabalho\\Complementares\\Processos")
-          # Diretório de download padrão
-    }
-)
+    chrome_options.add_experimental_option(
+        "prefs", {
+            "download.prompt_for_download": False,
+            "download.directory_upgrade": False,
+            "plugins.always_open_pdf_externally": True,
+            "download.default_directory": os.path.join(os.getcwd(), "Processos")
+        }
+    )
+
+    return chrome_options
+
+chrome_options = setup_chrome_options()
 
 # ===== FUNÇÕES AUXILIARES =====
 
@@ -436,25 +440,27 @@ def cleaning_downloaded(driver) -> list:
 
 def EPROC_Download(numeros_processos: list[str]) -> bool:
     """
-    🚀 Orquestrador Principal de Downloads
+    ### 🚀 EPROC_Download
+    Automates the download of multiple processes from the EPROC system, including automatic login and duplicate verification. This function orchestrates the entire download workflow, ensuring that all specified processes are handled efficiently.
 
-    Função principal para automatizar o download de múltiplos processos
-    do sistema EPROC com login automático e verificação de duplicatas.
+    ### 🖥️ Parameters
+    - `numeros_processos` (`list[str]`): A list of process numbers to download. Each entry should be a string representing a valid process number.
 
-    🚀 Parameters:
-    :param numeros_processos: 📋 Lista de números de processos para download
-    :type numeros_processos: list[str]
-    :return: ✅ True se todos os processos foram processados
-    :rtype: bool
-    :raises Exception: ❌ Se houver erro crítico durante execução
+    ### 🔄 Returns
+    - `bool`: Returns `True` if all processes were successfully processed. If any process fails, the function will raise an exception.
 
-    🎯 Example:
-    ```python
-        # Processar lista de processos
-        processos = ["5008676-91.2024.4.04.7102", "5003858-62.2025.4.04.7102"]
-        if Download_Processos(processos):
-            print("🎉 Todos os processos foram processados")
-    ```
+    ### ⚠️ Raises
+    - `Exception`: Raised if a critical error occurs during execution, preventing the completion of the download process.
+
+    ### 💡 Example
+
+    >>> processos = ["5008676-91.2024.4.04.7102", "5003858-62.2025.4.04.7102"]
+    >>> if EPROC_Download(processos):
+    >>>     print("🎉 All processes have been processed")
+
+    ### 📚 Notes
+    - Ensure that the login credentials are correctly set up, preferably using environment variables for security.
+    - The function assumes that the EPROC system is accessible and that the provided process numbers are valid.
     """
     try:
         # Abrir o site

@@ -18,7 +18,6 @@ from selenium.common.exceptions import NoSuchElementException
 import sys
 
 
-
 def selecionar_parte_se_necessario(driver):
 
     """
@@ -204,7 +203,7 @@ def handle_alert(driver):
         return True
     except TimeoutException:
         return False
-#Handle an alert with ok
+# Handle an alert with ok
 def handle_alert_ok(driver):
     try:
         alert = WebDriverWait(driver, 5).until(EC.alert_is_present())
@@ -222,14 +221,14 @@ def login(driver, usuario, senha):
         if "painel_perito_listar" in driver.current_url:
             return True
         campo_usuario = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "txtUsuario"))
+            EC.presence_of_element_located((By.ID, "username"))
         )
-        campo_senha = driver.find_element(By.ID, "pwdSenha")
+        campo_senha = driver.find_element(By.ID, "password")
         campo_usuario.clear()
         campo_usuario.send_keys(usuario)
         campo_senha.clear()
         campo_senha.send_keys(senha)
-        botao_login = driver.find_element(By.ID, "sbmEntrar")
+        botao_login = driver.find_element(By.ID, "kc-login")
         botao_login.click()
         time.sleep(2)
         current_url = driver.current_url
@@ -434,21 +433,23 @@ def preencher_formulario(driver, laudo_data, event):
 
     # Mapping between JSON keys and HTML IDs
     id_mapping = {
-    "FormacaoTecnicoProfissional": "txtFormacaoTecnicoProfissional",
-    "UltimaAtividade": "txtUltimaAtividade",
-    "TarefasExigidasUltimaAtividade": "txtTarefasExigidasUltimaAtividade",
-    "QuantoTempoUltimaAtividade": "txtQuantoTempoUltimaAtividade",
-    "AteQuandoUltimaAtividade": "txtAteQuandoUltimaAtividade",
-    "ExperienciasLaboraisAnt": "txtExperienciasLaboraisAnt",
-    "MotivoIncapacidade": "txtMotivoIncapacidade",
-    "HistoricoAnamnese": "txaHistoricoAnamnese",
-    "DocumentosMedicosAnalisados": "txaDocumentosMedicosAnalisados",
-    "CausaProvavelDiagnostico": "txaCausaProvavelDiagnostico",
-    "DID": "txtDID",
-    "DCB:": "txtDadoComplementarPericia011_D010_S",
-    "QuesitoDoJuizoRespostas": "txaQuesitoDoJuizoRespostas",
-    "CIF": "txaQuesitoDoJuizoRespostas",
-
+        "FormacaoTecnicoProfissional": "txtFormacaoTecnicoProfissional",
+        "UltimaAtividade": "txtTarefasExigidasUltimaAtividade",
+        "TarefasExigidasUltimaAtividade": "txtTarefasExigidasUltimaAtividade",
+        "QuantoTempoUltimaAtividade": "txtQuantoTempoUltimaAtividade",
+        "AteQuandoUltimaAtividade": "txtAteQuandoUltimaAtividade",
+        "ExperienciasLaboraisAnt": "txtExperienciasLaboraisAnt",
+        "MotivoIncapacidade": "txtMotivoIncapacidade",
+        "HistoricoAnamnese": "txaHistoricoAnamnese",
+        "DocumentosMedicosAnalisados": "txaDocumentosMedicosAnalisados",
+        "ExameFisicoMental": "txaExameFisicoMental",
+        "CONCLUSAO PERICIAL": "txaDadoComplementarPericia047_D010_S",
+        "CausaProvavelDiagnostico": "txaCausaProvavelDiagnostico",
+        "DID": "txtDID",
+        "DCB": "txtDadoComplementarPericia011_D010_S",
+        "DER": "txtDER",
+        "QuesitoDoJuizoRespostas": "txaQuesitoDoJuizoRespostas",
+        "CIF": "txaQuesitoDoJuizoRespostas",
     }
     try:
         # Abrir o arquivo JSON com codificação UTF-8
@@ -497,7 +498,6 @@ def preencher_formulario(driver, laudo_data, event):
             except Exception as e:
                 print(f"Erro ao preencher o campo {json_key}: {str(e)}")
                 campos_nao_preenchidos.append(json_key)
-
 
     except json.JSONDecodeError as e:
         print(f"Erro ao decodificar o arquivo JSON: {str(e)}")
@@ -611,7 +611,6 @@ def switch_to_frame_containing_element(driver, by, value):
         return False
 
 
-
 def press_ctrl_shift_l(driver):
     try:
         actions = ActionChains(driver)
@@ -629,7 +628,7 @@ def press_ctrl_shift_l(driver):
 def processar_laudo(driver, numero, model: str):
     try:
         print(numero)
-        report_path = f"Reports/{numero}_final_report.md"
+        report_path = os.path.join(os.getcwd(), "Reports", f"{numero}_final_report.md")
         # Create a new Event object for each process
         template_event = Event()
         # Initialize template with the event
@@ -654,12 +653,16 @@ def processar_laudo(driver, numero, model: str):
                 template_event.clear()
                 preencher_formulario(driver, "laudo_template.json", template_event)
 
-
             if template_event.is_set():
                 print("Salvando o formulário...")
                 clicar_salvar(driver)
                 print("Formulário salvo com sucesso.")
-                shutil.move(report_path, os.path.join("Reports", "Processed", f"{numero}_final_report.md"))
+                shutil.move(
+                    report_path,
+                    os.path.join(
+                        os.getcwd(), "Reports", "Processed", f"{numero}_final_report.md"
+                    ),
+                )
             else:
                 print("Timeout aguardando geração do template")
             driver.quit()
@@ -695,7 +698,6 @@ def debug_estado_pagina(driver):
 
     except Exception as e:
         print(f"Erro no debug: {e}")
-
 
 
 def main(driver, numero):
@@ -746,7 +748,6 @@ def main(driver, numero):
             print("Falha no login automático. Por favor, faça login manualmente.")
             input("Pressione Enter após fazer login manualmente...")
 
-        processar_laudo(driver, numero, "gpt-4.1")
+        processar_laudo(driver, numero, "gpt-4.1-mini")
     except Exception as e:
         print(f"Ocorreu um erro: {str(e)}")
-

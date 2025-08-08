@@ -2,6 +2,7 @@
 # Ignore generated files
 .vscode/*
 __pycache__/
+
 # Ignore contents of Processos/Processed except .gitkeep
 Processos/*
 !Processos/.gitkeep
@@ -30,8 +31,6 @@ key.json
 # Files that should not be ignored
 !README.md
 !requirements.txt
-!.gitignore
-
 
 
 
