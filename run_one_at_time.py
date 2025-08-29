@@ -44,7 +44,7 @@ def run_processes_sequentially():
         script_content = f"""
 from selenium.webdriver.chrome.options import Options
 from selenium import webdriver
-from autofill import main, setup_chrome_options
+from Autofill.autofill import main, setup_chrome_options
 import sys
 
 def run_single_process():
@@ -98,4 +98,3 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Erro: {e}")
 
-run_processes_sequentially()

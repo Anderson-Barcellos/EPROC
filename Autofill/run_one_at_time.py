@@ -2,7 +2,7 @@ import os
 import subprocess
 import time
 import sys
-
+import shutil
 
 
 def run_processes_sequentially():
@@ -36,15 +36,12 @@ def run_processes_sequentially():
 
     """
 
-
-
     def _create_temp_script(i, process_number: str) -> str:
-
 
         script_content = f"""
 from selenium.webdriver.chrome.options import Options
 from selenium import webdriver
-from autofill import main, setup_chrome_options
+from Autofill.autofill import main, setup_chrome_options
 import sys
 
 def run_single_process():
@@ -68,11 +65,16 @@ if __name__ == "__main__":
             print(f"Erro ao criar script temporário: {e}")
             return None
 
-
         return os.path.join(os.getcwd(), f"{i}_temp_script.py")
 
     reports = os.path.join("Reports")
     i = 0
+    # ■■■■■■■■■■■
+    # PENDING SETUP
+    # ■■■■■■■■■■■
+    pending_folder = os.path.join("Reports", "Pending")
+    os.makedirs(pending_folder, exist_ok=True)
+
     try:
         for file in os.listdir(reports):
 
@@ -89,12 +91,18 @@ if __name__ == "__main__":
                 process = subprocess.Popen(cmd, shell=True)
                 process.wait()
                 if process.returncode == 0:
-                        print(f"Processo {process_number} concluído com sucesso")
+                    print(f"Processo {process_number} concluído com sucesso")
 
                 else:
                     print(f"Processo {process_number} falhou")
+                    # ■■■■■■■■■■■
+                    # PENDING LOGIC - FAILED PROCESS
+                    # ■■■■■■■■■■■
+                    report_file = os.path.join(reports, file)
+                    if os.path.exists(report_file):
+                        shutil.move(report_file, os.path.join(pending_folder, file))
+                        print(f"⚠️ Arquivo {file} movido para Pending")
 
                 time.sleep(2)
     except Exception as e:
         print(f"Erro: {e}")
-

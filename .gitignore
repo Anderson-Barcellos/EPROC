@@ -8,16 +8,22 @@ Processos/*
 !Processos/.gitkeep
 Processos/Processed/*
 !Processos/Processed/.gitkeep
+Processos/Pending/*
+!Processos/Pending/.gitkeep
 
 Output/*
 !Output/.gitkeep
 Output/Processed/*
 !Output/Processed/.gitkeep
+Output/Pending/*
+!Output/Pending/.gitkeep
 
 Reports/*
 !Reports/.gitkeep
 Reports/Processed/*
 !Reports/Processed/.gitkeep
+Reports/Pending/*
+!Reports/Pending/.gitkeep
 
 # Ignore files
 
@@ -39,3 +45,6 @@ key.json
 
 
 
+cloud_ocr/key.json
+*.log
+Processos/*.PDF

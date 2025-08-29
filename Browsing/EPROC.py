@@ -12,6 +12,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+
 import os
 import time
 from selenium.webdriver.common.keys import Keys
@@ -43,6 +44,7 @@ def setup_chrome_options():
     return chrome_options
 
 chrome_options = setup_chrome_options()
+
 
 # ===== FUNÇÕES AUXILIARES =====
 
@@ -162,17 +164,52 @@ def tentar_login_automatico(driver_instance: webdriver.Chrome, usuario: str, sen
         {"user": (By.ID, "username"), "pwd": (By.ID, "password"), "btn": (By.ID, "kc-login")},
     ]
 
-    # Identificar formulário presente
-    for form in formularios:
+    # Identificar formulário presente sem iterar por todos os itens
+    # Tentar primeiro pelo user=txtUsuario; se não existir, usar o alternativo (username)
+    selected_form = None
+    try:
+        campo_usuario = espera.until(
+            EC.presence_of_element_located(formularios[0]["user"])
+        )
+        selected_form = formularios[0]
+        print("Formulário padrão (txtUsuario) detectado.")
+    except TimeoutException:
+        print("Campo 'txtUsuario' não encontrado. Tentando formulário alternativo...")
         try:
-            campo_usuario = espera.until(EC.presence_of_element_located(form["user"]))
-            campo_senha = driver_instance.find_element(*form["pwd"])
-            botao_login = driver_instance.find_element(*form["btn"])
-            break
+            campo_usuario = espera.until(
+                EC.presence_of_element_located(formularios[1]["user"])
+            )
+            selected_form = formularios[1]
+            print("Formulário SSO/Keycloak (username) detectado.")
         except TimeoutException:
-            continue
-    else:
-        raise Exception("Nenhum formulário de login reconhecido foi encontrado")
+            raise Exception("Nenhum formulário de login reconhecido foi encontrado")
+
+    # Validar campos pwd e btn; se faltar algum, usar o outro formulário
+    try:
+        campo_senha = espera.until(EC.presence_of_element_located(selected_form["pwd"]))
+        botao_login = espera.until(EC.presence_of_element_located(selected_form["btn"]))
+        print("Campos de senha e botão encontrados para o formulário selecionado.")
+    except TimeoutException:
+        print(
+            "Algum campo ausente no formulário selecionado. Alternando para o formulário alternativo..."
+        )
+        fallback_form = (
+            formularios[1] if selected_form == formularios[0] else formularios[0]
+        )
+        try:
+            selected_form = fallback_form
+            campo_usuario = espera.until(
+                EC.presence_of_element_located(selected_form["user"])
+            )
+            campo_senha = espera.until(
+                EC.presence_of_element_located(selected_form["pwd"])
+            )
+            botao_login = espera.until(
+                EC.presence_of_element_located(selected_form["btn"])
+            )
+            print("Formulário alternativo validado com sucesso.")
+        except TimeoutException:
+            raise Exception("Nenhum formulário completo de login foi encontrado")
 
     # Preencher e submeter formulário
     campo_usuario.clear()
@@ -395,6 +432,24 @@ def processar_numero(driver, numero_processo: str) -> None:
         except Exception as e:
             print(f"Erro na tentativa {tentativa}: {str(e)}")
 
+    # ■■■■■■■■■■■
+    # PENDING LOGIC
+    # ■■■■■■■■■■■
+    # Criar pasta Pending se não existir
+    pending_folder = os.path.join("Processos", "Pending")
+    os.makedirs(pending_folder, exist_ok=True)
+
+    # Salvar registro do processo que falhou
+    pending_file = os.path.join(pending_folder, f"{numero_processo}_pending.txt")
+    with open(pending_file, "w", encoding="utf-8") as f:
+        f.write(f"Processo: {numero_processo}\n")
+        f.write(f"Tentativas: {max_tentativas}\n")
+        f.write(f"Status: Falhou após todas as tentativas\n")
+        f.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+
+    print(
+        f"⚠️ Processo {numero_processo} movido para Pending após {max_tentativas} tentativas"
+    )
     raise Exception(f"Não foi possível baixar o arquivo para o processo {numero_processo} após {max_tentativas} tentativas")
 
 
@@ -494,12 +549,24 @@ def EPROC_Download(numeros_processos: list[str]) -> bool:
             input("Pressione Enter após confirmar que está logado...")
 
         # Processar cada número
+        processos_com_erro = []
         for numero in numeros_processos:
-            processar_numero(driver, numero)
-            time.sleep(5)
+            try:
+                processar_numero(driver, numero)
+                time.sleep(5)
+            except Exception as e:
+                print(f"❌ Erro ao processar {numero}: {str(e)}")
+                processos_com_erro.append(numero)
+                continue
 
+        if processos_com_erro:
+            print(
+                f"\n⚠️ {len(processos_com_erro)} processos com erro foram movidos para Pending"
+            )
+            print(f"Processos pendentes: {', '.join(processos_com_erro)}")
+        else:
+            print("✅ Todos os processos foram concluídos com sucesso.")
 
-        print("Todos os processos foram concluídos.")
         input("Pressione Enter para fechar o navegador...")
 
         return True
@@ -509,4 +576,3 @@ def EPROC_Download(numeros_processos: list[str]) -> bool:
         raise e
     finally:
         driver.quit()
-

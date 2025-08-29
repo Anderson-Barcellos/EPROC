@@ -6,16 +6,64 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 import os
 import time
-from selenium import webdriver
 import json
-from Models.models import MiniTemplate
+from Models import MiniTemplate
 from threading import Event
 import traceback
 from selenium.webdriver.common.action_chains import ActionChains
 import shutil
 from selenium.webdriver.support.ui import Select
 from selenium.common.exceptions import NoSuchElementException
-import sys
+from Browsing.EPROC import pesquisar_processo
+
+
+# ===== ADICIONAR ESTAS FUNÇÕES DE VALIDAÇÃO AQUI =====
+def validar_estrutura_json(laudos):
+    """Valida se o JSON possui a estrutura esperada"""
+    campos_obrigatorios = [
+        "FormacaoTecnicoProfissional",
+        "UltimaAtividade",
+        "MotivoIncapacidade",
+        "HistoricoAnamnese",
+        "DocumentosMedicosAnalisados",
+        "DCB",
+        "DID",
+        "DER",
+        "DAP",
+    ]
+
+    if "json" not in laudos:
+        raise ValueError("JSON deve conter a chave 'json' principal")
+
+    json_data = laudos["json"]
+    campos_faltantes = [
+        campo for campo in campos_obrigatorios if campo not in json_data
+    ]
+
+    if campos_faltantes:
+        print(f"⚠️ Campos obrigatórios faltando: {', '.join(campos_faltantes)}")
+
+    return json_data
+
+
+def validar_limites_campos(json_data):
+    """Valida e trunca campos que excedem limites"""
+    limites = {
+        "MotivoIncapacidade": 3,  # palavras
+        "HistoricoAnamnese": 100,  # palavras
+        "CONCLUSAO PERICIAL": 70,  # palavras
+    }
+
+    for campo, limite in limites.items():
+        if campo in json_data and json_data[campo]:
+            palavras = json_data[campo].split()
+            if len(palavras) > limite:
+                print(
+                    f"⚠️ Campo {campo} excede limite ({len(palavras)} > {limite} palavras)"
+                )
+                json_data[campo] = " ".join(palavras[:limite]) + "..."
+
+    return json_data
 
 
 def selecionar_parte_se_necessario(driver):
@@ -215,50 +263,139 @@ def handle_alert_ok(driver):
         print("Nenhum alerta encontrado")
         return False
 
-# Função para realizar o login
-def login(driver, usuario, senha):
-    try:
-        if "painel_perito_listar" in driver.current_url:
-            return True
-        campo_usuario = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "username"))
-        )
-        campo_senha = driver.find_element(By.ID, "password")
-        campo_usuario.clear()
-        campo_usuario.send_keys(usuario)
-        campo_senha.clear()
-        campo_senha.send_keys(senha)
-        botao_login = driver.find_element(By.ID, "kc-login")
-        botao_login.click()
-        time.sleep(2)
-        current_url = driver.current_url
-        if "painel_perito_listar" in current_url:
-            print("Login automático bem-sucedido.")
-            return True
+
+# ===== FUNÇÕES DE AUTENTICAÇÃO =====
+
+
+def login(driver_instance, usuario: str, senha: str, tempo_espera: int = 5) -> bool:
+    """
+    🔐 Autenticador Automático EPROC
+
+    Função para realizar login automático no sistema EPROC, suportando tanto
+    formulário nativo quanto SSO/Keycloak.
+
+    🔧 Parameters:
+    :param driver_instance: 🌐 Instância do WebDriver configurada
+    :type driver_instance: webdriver.Chrome
+    :param usuario: 👤 Nome de usuário para login
+    :type usuario: str
+    :param senha: 🔑 Senha do usuário
+    :type senha: str
+    :param tempo_espera: ⏱️ Timeout em segundos (padrão: 15)
+    :type tempo_espera: int
+    :return: ✅ True se login bem-sucedido, False caso contrário
+    :rtype: bool
+    :raises TimeoutException: ⏱️ Se elementos de login não forem encontrados
+    :raises Exception: ❌ Se houver erro durante o processo de login
+
+    🎯 Example:
+    ```python
+        # Login automático no sistema
+        if tentar_login_automatico(driver, "usuario123", "senha456"):
+            print("🎉 Login realizado com sucesso")
         else:
-            print("Falha no login automático. Por favor, faça login manualmente.")
-            input("Pressione Enter após fazer login manualmente...")
-            return False
+            print("❌ Falha no login automático")
+    ```
+    """
+    espera = WebDriverWait(driver_instance, tempo_espera)
 
-    except Exception as e:
-        print(f"Erro no login: {str(e)}")
-        return False
-
-# Função para pesquisar um processo
-def pesquisar_processo(driver, numero_processo):
+    # Tentar entrar no iframe SSO se existir
     try:
-        campo_pesquisa = WebDriverWait(driver, 10).until(
+        espera.until(EC.frame_to_be_available_and_switch_to_it((By.ID, "ssoFrame")))
+    except TimeoutException:
+        pass
+
+    # Formulários possíveis de login
+    formularios = [
+        {
+            "user": (By.ID, "txtUsuario"),
+            "pwd": (By.ID, "pwdSenha"),
+            "btn": (By.ID, "sbmEntrar"),
+        },
+        {
+            "user": (By.ID, "username"),
+            "pwd": (By.ID, "password"),
+            "btn": (By.ID, "kc-login"),
+        },
+    ]
+
+    # Identificar formulário presente sem iterar por todos os itens
+    # Tentar primeiro pelo user=txtUsuario; se não existir, usar o alternativo (username)
+    selected_form = None
+    try:
+        campo_usuario = espera.until(
+            EC.presence_of_element_located(formularios[0]["user"])
+        )
+        selected_form = formularios[0]
+        print("Formulário padrão (txtUsuario) detectado.")
+    except TimeoutException:
+        print("Campo 'txtUsuario' não encontrado. Tentando formulário alternativo...")
+        try:
+            campo_usuario = espera.until(
+                EC.presence_of_element_located(formularios[1]["user"])
+            )
+            selected_form = formularios[1]
+            print("Formulário SSO/Keycloak (username) detectado.")
+        except TimeoutException:
+            raise Exception("Nenhum formulário de login reconhecido foi encontrado")
+
+    # Validar campos pwd e btn; se faltar algum, usar o outro formulário
+    try:
+        campo_senha = espera.until(EC.presence_of_element_located(selected_form["pwd"]))
+        botao_login = espera.until(EC.presence_of_element_located(selected_form["btn"]))
+        print("Campos de senha e botão encontrados para o formulário selecionado.")
+    except TimeoutException:
+        print(
+            "Algum campo ausente no formulário selecionado. Alternando para o formulário alternativo..."
+        )
+        fallback_form = (
+            formularios[1] if selected_form == formularios[0] else formularios[0]
+        )
+        try:
+            selected_form = fallback_form
+            campo_usuario = espera.until(
+                EC.presence_of_element_located(selected_form["user"])
+            )
+            campo_senha = espera.until(
+                EC.presence_of_element_located(selected_form["pwd"])
+            )
+            botao_login = espera.until(
+                EC.presence_of_element_located(selected_form["btn"])
+            )
+            print("Formulário alternativo validado com sucesso.")
+        except TimeoutException:
+            raise Exception("Nenhum formulário completo de login foi encontrado")
+
+    # Preencher e submeter formulário
+    campo_usuario.clear()
+    campo_usuario.send_keys(usuario)
+    campo_senha.clear()
+    campo_senha.send_keys(senha)
+    botao_login.click()
+
+    # Tratar alerta opcional
+    try:
+        alerta = espera.until(EC.alert_is_present())
+        alerta.accept()
+    except TimeoutException:
+        pass
+
+    # Voltar ao conteúdo principal
+    driver_instance.switch_to.default_content()
+
+    # Verificar sucesso do login
+    try:
+        espera.until(
             EC.presence_of_element_located((By.ID, "txtNumProcessoPesquisaRapida"))
         )
-        campo_pesquisa.clear()
-        campo_pesquisa.send_keys(numero_processo)
-        campo_pesquisa.send_keys(Keys.RETURN)
-        print(f"Pesquisando processo: {numero_processo}")
+        print("Login automático bem-sucedido.")
+        return True
     except TimeoutException:
-        print("Não foi possível encontrar o campo de pesquisa.")
-    except Exception as e:
-        print(f"Erro ao pesquisar processo: {str(e)}")
+        print("Login provavelmente falhou – elemento pós-login não encontrado.")
+        return False
 
+
+# ===== FUNÇÕES DE NAVEGAÇÃO E PESQUISA =====
 
 def clicar_botao_novo(driver):
     """
@@ -421,20 +558,19 @@ def highlight_element(driver, element, effect_time=500, color="yellow", border=2
         }, arguments[1]);
     """, element, effect_time, color, border)
 
-# Modificar a função preencher_formulario para usar o template preenchido
 def preencher_formulario(driver, laudo_data, event):
     """
     Preenche o formulário com os dados do laudo.
     """
-    print("Iniciando preenchimento do formulário...")
+    print("=== Iniciando preenchimento do formulário ===")
 
     campos_preenchidos = 0
     campos_nao_preenchidos = []
 
-    # Mapping between JSON keys and HTML IDs
+    # Mapeamento corrigido e completo
     id_mapping = {
         "FormacaoTecnicoProfissional": "txtFormacaoTecnicoProfissional",
-        "UltimaAtividade": "txtTarefasExigidasUltimaAtividade",
+        "UltimaAtividade": "txtUltimaAtividade",
         "TarefasExigidasUltimaAtividade": "txtTarefasExigidasUltimaAtividade",
         "QuantoTempoUltimaAtividade": "txtQuantoTempoUltimaAtividade",
         "AteQuandoUltimaAtividade": "txtAteQuandoUltimaAtividade",
@@ -443,75 +579,149 @@ def preencher_formulario(driver, laudo_data, event):
         "HistoricoAnamnese": "txaHistoricoAnamnese",
         "DocumentosMedicosAnalisados": "txaDocumentosMedicosAnalisados",
         "ExameFisicoMental": "txaExameFisicoMental",
-        "CONCLUSAO PERICIAL": "txaDadoComplementarPericia047_D010_S",
-        "CausaProvavelDiagnostico": "txaCausaProvavelDiagnostico",
-        "DID": "txtDID",
+        "CONCLUSAO PERICIAL": "txaConclusaoPericial",
         "DCB": "txtDadoComplementarPericia011_D010_S",
+        "DID": "txtDID",
         "DER": "txtDER",
+        "DAP": "txtDAP",
+        "CausaProvavelDiagnostico": "txaCausaProvavelDiagnostico",
+        "CIF": "txaCIF",
         "QuesitoDoJuizoRespostas": "txaQuesitoDoJuizoRespostas",
-        "CIF": "txaQuesitoDoJuizoRespostas",
     }
+
     try:
         # Abrir o arquivo JSON com codificação UTF-8
         press_ctrl_shift_l(driver)
+
         with open(laudo_data, "r", encoding='utf-8') as file:
             laudos = json.loads(file.read())
 
-        if not isinstance(laudos, dict):
-            raise ValueError("O arquivo JSON não contém um dicionário válido.")
+        # Validar estrutura do JSON
+        try:
+            json_data = validar_estrutura_json(laudos)
+            json_data = validar_limites_campos(json_data)
+        except ValueError as e:
+            print(f"❌ Erro na estrutura do JSON: {e}")
+            return
 
         driver.execute_script("window.scrollTo(0, 0);")
-        print("Rolado até o topo da página")
+        print("✅ Página rolada até o topo")
 
-        for json_key, valor in laudos['json'].items():
+        # Processar cada campo
+        for json_key, valor in json_data.items():
             try:
                 html_id = id_mapping.get(json_key)
-                valor = markdown_to_text(valor)
+
                 if not html_id:
-                    print(f"Não foi encontrado mapeamento para o campo JSON: {json_key}")
+                    print(f"⚠️ Não há mapeamento para o campo JSON: {json_key}")
                     campos_nao_preenchidos.append(json_key)
                     continue
 
-                print(f"Tentando preencher o campo: {html_id}")
+                # Converter markdown para texto plano
+                valor = markdown_to_text(str(valor))
+
+                print(f"📝 Tentando preencher: {html_id} ({json_key})")
+
+                # Aguardar elemento estar presente
                 elemento = WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.ID, html_id))
                 )
 
-                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", elemento)
+                # Rolar até o elemento
+                driver.execute_script(
+                    "arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});",
+                    elemento,
+                )
                 time.sleep(0.5)
 
+                # Verificar visibilidade e preencher
                 if is_element_visible(driver, elemento):
                     highlight_element(driver, elemento)
-                    elemento.clear()
-                    # Enviar o valor diretamente sem tratamento de caracteres especiais
-                    driver.execute_script("arguments[0].value = arguments[1];", elemento, str(valor))
-                    # Disparar evento de mudança para garantir que o JavaScript da página reconheça a alteração
-                    driver.execute_script("arguments[0].dispatchEvent(new Event('change'));", elemento)
-                    print(f"Campo {html_id} preenchido com: {valor}")
+
+                    # Limpar campo
+                    driver.execute_script("arguments[0].value = '';", elemento)
+
+                    # Preencher valor
+                    driver.execute_script(
+                        "arguments[0].value = arguments[1];", elemento, valor
+                    )
+
+                    # Disparar eventos para garantir que o sistema reconheça a mudança
+                    driver.execute_script(
+                        """
+                        var elemento = arguments[0];
+                        elemento.dispatchEvent(new Event('input', { bubbles: true }));
+                        elemento.dispatchEvent(new Event('change', { bubbles: true }));
+                        elemento.dispatchEvent(new Event('blur', { bubbles: true }));
+                    """,
+                        elemento,
+                    )
+
+                    print(f"✅ Campo {json_key} preenchido com sucesso")
                     campos_preenchidos += 1
                 else:
-                    print(f"Campo {html_id} não está visível")
+                    print(f"❌ Campo {html_id} não está visível")
                     campos_nao_preenchidos.append(json_key)
+
             except TimeoutException:
-                print(f"Timeout: Nao foi possível encontrar o campo {json_key}")
+                print(f"⏱️ Timeout: Não foi possível encontrar o campo {html_id}")
                 campos_nao_preenchidos.append(json_key)
             except Exception as e:
-                print(f"Erro ao preencher o campo {json_key}: {str(e)}")
+                print(f"❌ Erro ao preencher o campo {json_key}: {str(e)}")
                 campos_nao_preenchidos.append(json_key)
 
-    except json.JSONDecodeError as e:
-        print(f"Erro ao decodificar o arquivo JSON: {str(e)}")
-        print("Verifique se o formato está correto e a codificação é UTF-8")
-    except FileNotFoundError:
-        print(f"Arquivo não encontrado: {laudo_data}")
-    except Exception as e:
-        print(f"Erro geral ao preencher o formulário: {str(e)}")
-    finally:
-        print(f"Total de campos preenchidos: {campos_preenchidos}")
+        # Relatório final
+        print("\n=== RELATÓRIO DE PREENCHIMENTO ===")
+        print(f"✅ Campos preenchidos com sucesso: {campos_preenchidos}")
+        print(f"❌ Campos não preenchidos: {len(campos_nao_preenchidos)}")
+
         if campos_nao_preenchidos:
-            print(f"Campos não preenchidos: {', '.join(campos_nao_preenchidos)}")
+            print(f"   Campos com problema: {', '.join(campos_nao_preenchidos)}")
+
+        print("=================================\n")
+
+    except json.JSONDecodeError as e:
+        print(f"❌ Erro ao decodificar o arquivo JSON: {str(e)}")
+        print("   Verifique se o formato está correto e a codificação é UTF-8")
+    except FileNotFoundError:
+        print(f"❌ Arquivo não encontrado: {laudo_data}")
+    except Exception as e:
+        print(f"❌ Erro geral ao preencher o formulário: {str(e)}")
+        print(f"   Stack trace: {traceback.format_exc()}")
+    finally:
         driver.switch_to.default_content()
         event.set()
+
+
+def debug_json_structure(json_file_path):
+    """
+    Função para debugar a estrutura do JSON antes do preenchimento
+    """
+    try:
+        with open(json_file_path, "r", encoding="utf-8") as file:
+            data = json.loads(file.read())
+
+        print("\n=== DEBUG JSON STRUCTURE ===")
+        print(f"Chaves principais: {list(data.keys())}")
+
+        if "json" in data:
+            print(f"Campos no JSON: {list(data['json'].keys())}")
+            print(f"Total de campos: {len(data['json'])}")
+
+            # Verificar campos vazios
+            campos_vazios = [k for k, v in data["json"].items() if not v or v == ""]
+            if campos_vazios:
+                print(f"⚠️ Campos vazios: {', '.join(campos_vazios)}")
+
+        print("===========================\n")
+
+    except Exception as e:
+        print(f"❌ Erro ao debugar JSON: {e}")
+
+
+# Chamar antes de preencher_formulario se quiser debugar
+# debug_json_structure("laudo_template.json")
+
 
 def clicar_laudo_medico(driver):
     try:
@@ -628,7 +838,7 @@ def press_ctrl_shift_l(driver):
 def processar_laudo(driver, numero, model: str):
     try:
         print(numero)
-        report_path = os.path.join(os.getcwd(), "Reports", f"{numero}_final_report.md")
+        report_path = f"Reports/{numero}_final_report.md"
         # Create a new Event object for each process
         template_event = Event()
         # Initialize template with the event
@@ -651,6 +861,7 @@ def processar_laudo(driver, numero, model: str):
             template_event.wait(timeout=30.0)
             if template_event.is_set():
                 template_event.clear()
+                debug_json_structure("laudo_template.json")
                 preencher_formulario(driver, "laudo_template.json", template_event)
 
             if template_event.is_set():
@@ -659,15 +870,34 @@ def processar_laudo(driver, numero, model: str):
                 print("Formulário salvo com sucesso.")
                 shutil.move(
                     report_path,
-                    os.path.join(
-                        os.getcwd(), "Reports", "Processed", f"{numero}_final_report.md"
-                    ),
+                    os.path.join("Reports", "Processed", f"{numero}_final_report.md"),
                 )
             else:
                 print("Timeout aguardando geração do template")
+                # ■■■■■■■■■■■
+                # PENDING LOGIC - TEMPLATE TIMEOUT
+                # ■■■■■■■■■■■
+                os.makedirs(os.path.join("Reports", "Pending"), exist_ok=True)
+                if os.path.exists(report_path):
+                    shutil.move(
+                        report_path,
+                        os.path.join("Reports", "Pending", f"{numero}_final_report.md"),
+                    )
+                    print(f"⚠️ Report {numero} movido para Pending (timeout)")
             driver.quit()
     except Exception as e:
         print(f"Ocorreu um erro: {str(e)}")
+        # ■■■■■■■■■■■
+        # PENDING LOGIC - ERROR
+        # ■■■■■■■■■■■
+        os.makedirs(os.path.join("Reports", "Pending"), exist_ok=True)
+        report_path = f"Reports/{numero}_final_report.md"
+        if os.path.exists(report_path):
+            shutil.move(
+                report_path,
+                os.path.join("Reports", "Pending", f"{numero}_final_report.md"),
+            )
+            print(f"⚠️ Report {numero} movido para Pending (erro)")
     finally:
         driver.quit()
 # Função auxiliar para debug
@@ -748,6 +978,6 @@ def main(driver, numero):
             print("Falha no login automático. Por favor, faça login manualmente.")
             input("Pressione Enter após fazer login manualmente...")
 
-        processar_laudo(driver, numero, "gpt-4.1-mini")
+        processar_laudo(driver, numero, "gpt-5-mini")
     except Exception as e:
         print(f"Ocorreu um erro: {str(e)}")

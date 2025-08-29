@@ -13,12 +13,6 @@ import shutil
 import sys
 
 
-
-
-
-
-
-
 def Recognize() -> bool:
     """
     ### 📝 Recognize
@@ -90,8 +84,6 @@ def Recognize() -> bool:
         finally:
             document.close()
 
-
-
     try:
         files = [f for f in os.listdir("Processos") if  f.endswith('.PDF')]
 
@@ -101,6 +93,11 @@ def Recognize() -> bool:
         else:
             progress_files = ProgressBar(len(files), "Processing files", "file")
             os.makedirs(os.path.join("Processos", "Processed"), exist_ok=True)
+            # ■■■■■■■■■■■
+            # PENDING SETUP
+            # ■■■■■■■■■■■
+            os.makedirs(os.path.join("Processos", "Pending"), exist_ok=True)
+            os.makedirs(os.path.join("Output", "Pending"), exist_ok=True)
 
             for file in files:
 
@@ -118,8 +115,31 @@ def Recognize() -> bool:
 
                 except Exception as e:
                     print(f"Error processing file {file}: {str(e)}")
-            progress_files.close()
+                    # ■■■■■■■■■■■
+                    # PENDING LOGIC - OCR ERROR
+                    # ■■■■■■■■■■■
+                    try:
+                        file_path = os.path.join("Processos", file)
+                        if os.path.exists(file_path):
+                            shutil.move(
+                                file_path, os.path.join("Processos", "Pending", file)
+                            )
+                            print(f"⚠️ PDF {file} movido para Pending (erro no OCR)")
 
+                            # Criar arquivo de log do erro
+                            error_log_path = os.path.join(
+                                "Output", "Pending", f"{file[3:23]}_error.txt"
+                            )
+                            with open(error_log_path, "w", encoding="utf-8") as f:
+                                f.write(f"Erro ao processar arquivo: {file}\n")
+                                f.write(f"Mensagem de erro: {str(e)}\n")
+                                f.write(
+                                    f"Timestamp: {__import__('time').strftime('%Y-%m-%d %H:%M:%S')}\n"
+                                )
+                    except Exception as move_error:
+                        print(f"Erro ao mover arquivo para Pending: {move_error}")
+
+            progress_files.close()
 
     except Exception as e:
         print(f"Critical error in main process: {str(e)}")
@@ -127,5 +147,3 @@ def Recognize() -> bool:
     finally:
         print("OCR process completed successfully")
         return True
-
-

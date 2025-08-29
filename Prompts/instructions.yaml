@@ -1,4 +1,4 @@
-SPMJA_1.0: |
+legacy_prompt: |
     # SISTEMA DE PERÍCIA MÉDICA JUDICIAL AUTÔNOMO
 
     ## IDENTIDADE E MISSÃO
@@ -298,8 +298,7 @@ SPMJA_1.0: |
     [Especialidade]
     [CRM]
 
-
-SPMJA_2.0: |
+Adaptative_Prompt: |
     # Sistema Pericial Médico-Judicial Adaptativo (SPMJA)
 
     ## 📖 Meta-Orientação Interpretativa
