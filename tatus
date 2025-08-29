@@ -1,0 +1,5 @@
+[33m160fa38[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Merge branch 'main' of https://github.com/Anderson-Barcellos/EPROC
+[33m5922038[m Merge branch 'main' of https://github.com/Anderson-Barcellos/EPROC
+[33m654929a[m Refactor project structure: remove autofill.py, update .gitignore to ignore additional files, and enhance error handling in various modules. Revise laudo_template.json with updated patient information and conclusions. Integrate SimplePushbullet for notifications in the recognizer module and improve path handling in cloud OCR.
+[33m60caa41[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Sum
+[33m293bad0[m Merge branch 'main' of https://github.com/Anderson-Barcellos/EPROC
