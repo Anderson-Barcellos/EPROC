@@ -10,6 +10,22 @@
 .cursorignore
 
 # ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+# CASE DATA DIRECTORIES
+# ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+Processos/*
+!Processos/.gitkeep
+Processos/Processed/*
+!Processos/Processed/.gitkeep
+Output/*
+!Output/.gitkeep
+Output/Processed/*
+!Output/Processed/.gitkeep
+Reports/*
+!Reports/.gitkeep
+Reports/Processed/*
+!Reports/Processed/.gitkeep
+
+# ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
 # PYTHON CACHE
 # ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
 __pycache__/
