@@ -567,8 +567,9 @@ def preencher_formulario(driver, laudo_data, event):
     campos_preenchidos = 0
     campos_nao_preenchidos = []
 
-    # Mapeamento corrigido e completo
+    # Mapeamento corrigido e completo baseado na estrutura HTML real
     id_mapping = {
+        # Campos de texto simples
         "FormacaoTecnicoProfissional": "txtFormacaoTecnicoProfissional",
         "UltimaAtividade": "txtUltimaAtividade",
         "TarefasExigidasUltimaAtividade": "txtTarefasExigidasUltimaAtividade",
@@ -576,17 +577,30 @@ def preencher_formulario(driver, laudo_data, event):
         "AteQuandoUltimaAtividade": "txtAteQuandoUltimaAtividade",
         "ExperienciasLaboraisAnt": "txtExperienciasLaboraisAnt",
         "MotivoIncapacidade": "txtMotivoIncapacidade",
+        # Campos de textarea
         "HistoricoAnamnese": "txaHistoricoAnamnese",
         "DocumentosMedicosAnalisados": "txaDocumentosMedicosAnalisados",
         "ExameFisicoMental": "txaExameFisicoMental",
-        "CONCLUSAO PERICIAL": "txaConclusaoPericial",
-        "DCB": "txtDadoComplementarPericia011_D010_S",
-        "DID": "txtDID",
-        "DER": "txtDER",
-        "DAP": "txtDAP",
         "CausaProvavelDiagnostico": "txaCausaProvavelDiagnostico",
-        "CIF": "txaCIF",
+        "ObservacoesTratamento": "txaObservacoesTratamento",
+        # Campos de datas importantes
+        "DID": "txtDID",  # Data de Início da Doença
+        "DII": "txtDadoComplementarPericia011_D010_S",  # Data de Início da Incapacidade (DII = DCB se existir, senão DER)
+        # NOTA: DCB e DER são usados para calcular DII, mas não têm campos próprios no formulário
+        # A lógica é: Se há benefício anterior (DCB existe) -> DII = DCB
+        #            Se não há benefício anterior -> DII = DER
+        # Campos de conclusão e perguntas
+        "CONCLUSAO PERICIAL": "txaDadoComplementarPericia047_D010_S",  # Campo de justificativa da incapacidade
+        "CIF": "txaDadoComplementarPericia003_D002_S",  # Se não houver campo específico de CIF
+        # Assistentes
+        "AssistenteReu": "txtAssistenteReu",
+        "ConsideracoesAssistenteReu": "txaConsideracoesAssistenteReu",
+        "AssistenteAutor": "txtAssistenteAutor",
+        "ConsideracoesAssistenteAutor": "txaConsideracoesAssistenteAutor",
+        # Quesitos
+        "QuesitoDoJuizo": "txaQuesitoDoJuizo",
         "QuesitoDoJuizoRespostas": "txaQuesitoDoJuizoRespostas",
+        "QuesitoParteAutora": "txaQuesitoParteAutora",
     }
 
     try:
@@ -836,6 +850,7 @@ def press_ctrl_shift_l(driver):
         print(f"Erro ao pressionar Ctrl + Shift + L: {str(e)}")
 
 def processar_laudo(driver, numero, model: str):
+
     try:
         print(numero)
         report_path = f"Reports/{numero}_final_report.md"
@@ -858,7 +873,7 @@ def processar_laudo(driver, numero, model: str):
         if clicar_botao_novo(driver):
             time.sleep(5)
             # Wait for template with proper event object
-            template_event.wait(timeout=30.0)
+            template_event.wait(timeout=120.0)
             if template_event.is_set():
                 template_event.clear()
                 debug_json_structure("laudo_template.json")
@@ -868,20 +883,31 @@ def processar_laudo(driver, numero, model: str):
                 print("Salvando o formulário...")
                 clicar_salvar(driver)
                 print("Formulário salvo com sucesso.")
+                processed_folder = os.path.join("Reports", "Processed")
+                if not os.path.isdir(processed_folder):
+                    raise FileNotFoundError(
+                        "Required folder not found: Reports/Processed. Please create it before running the automation."
+                    )
                 shutil.move(
                     report_path,
-                    os.path.join("Reports", "Processed", f"{numero}_final_report.md"),
+                    os.path.join(processed_folder, f"{numero}_final_report.md"),
                 )
             else:
                 print("Timeout aguardando geração do template")
                 # ■■■■■■■■■■■
                 # PENDING LOGIC - TEMPLATE TIMEOUT
                 # ■■■■■■■■■■■
-                os.makedirs(os.path.join("Reports", "Pending"), exist_ok=True)
+                # Pasta Pending deve existir (criação automática removida)
+                report_path = f"Reports/{numero}_final_report.md"
+                pending_folder = os.path.join("Reports", "Pending")
+                if not os.path.isdir(pending_folder):
+                    raise FileNotFoundError(
+                        "Required folder not found: Reports/Pending. Please create it before running the automation."
+                    )
                 if os.path.exists(report_path):
                     shutil.move(
                         report_path,
-                        os.path.join("Reports", "Pending", f"{numero}_final_report.md"),
+                        os.path.join(pending_folder, f"{numero}_final_report.md"),
                     )
                     print(f"⚠️ Report {numero} movido para Pending (timeout)")
             driver.quit()
@@ -890,12 +916,17 @@ def processar_laudo(driver, numero, model: str):
         # ■■■■■■■■■■■
         # PENDING LOGIC - ERROR
         # ■■■■■■■■■■■
-        os.makedirs(os.path.join("Reports", "Pending"), exist_ok=True)
+        # Pasta Pending deve existir (criação automática removida)
         report_path = f"Reports/{numero}_final_report.md"
+        pending_folder = os.path.join("Reports", "Pending")
+        if not os.path.isdir(pending_folder):
+            raise FileNotFoundError(
+                "Required folder not found: Reports/Pending. Please create it before running the automation."
+            )
         if os.path.exists(report_path):
             shutil.move(
                 report_path,
-                os.path.join("Reports", "Pending", f"{numero}_final_report.md"),
+                os.path.join(pending_folder, f"{numero}_final_report.md"),
             )
             print(f"⚠️ Report {numero} movido para Pending (erro)")
     finally:
@@ -978,6 +1009,6 @@ def main(driver, numero):
             print("Falha no login automático. Por favor, faça login manualmente.")
             input("Pressione Enter após fazer login manualmente...")
 
-        processar_laudo(driver, numero, "gpt-5-mini")
+        processar_laudo(driver, numero, "gpt-4o-mini")
     except Exception as e:
         print(f"Ocorreu um erro: {str(e)}")

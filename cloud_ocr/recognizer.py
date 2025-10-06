@@ -10,7 +10,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from cloud_ocr import OCR
 from Tools import ProgressBar
 import shutil
-import sys
 
 
 def Recognize() -> bool:
@@ -53,13 +52,15 @@ def Recognize() -> bool:
         """
         total_text = []  # Using list for thread-safe append
         document = fitz.open(file_path)
+        executor = ThreadPoolExecutor(max_workers=max_workers)
 
         try:
 
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            with executor:
                 # Submit all pages to thread pool
                 future_to_page = {}
                 for page_num in range(len(document)):
+
                     future = executor.submit(_process_page, document[page_num], page_num)
                     future_to_page[future] = page_num
 
@@ -70,13 +71,14 @@ def Recognize() -> bool:
                     try:
                         result = future.result()
                         total_text.append((page_num, result))
-
+                    # Page number used as index to correctly sort the future results
                     except Exception as e:
                         print(f"Error processing page {page_num}: {str(e)}")
             # Sort results by page number and join texts
             final_text = "".join(text for _, text in sorted(total_text))
 
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(final_text)
 
@@ -85,60 +87,56 @@ def Recognize() -> bool:
             document.close()
 
     try:
-        files = [f for f in os.listdir("Processos") if  f.endswith('.PDF')]
+        base_process_dir = "Processos"
+        processed_dir = os.path.join(base_process_dir, "Processed")
+        output_dir = "Output"
+
+        if not os.path.isdir(base_process_dir):
+            raise FileNotFoundError(
+                "Required folder not found: Processos. Please create it before running the OCR module."
+            )
+
+        if not os.path.isdir(processed_dir):
+            raise FileNotFoundError(
+                "Required folder not found: Processos/Processed. Please create it before running the OCR module."
+            )
+
+        if not os.path.isdir(output_dir):
+            raise FileNotFoundError(
+                "Required folder not found: Output. Please create it before running the OCR module."
+            )
+
+        files = [f for f in os.listdir(base_process_dir) if f.endswith(".PDF")]
 
         if len(files) == 0:
             raise FileNotFoundError("No PDF files found in 'Processos' directory")
 
         else:
             progress_files = ProgressBar(len(files), "Processing files", "file")
-            os.makedirs(os.path.join("Processos", "Processed"), exist_ok=True)
-            # ■■■■■■■■■■■
-            # PENDING SETUP
-            # ■■■■■■■■■■■
-            os.makedirs(os.path.join("Processos", "Pending"), exist_ok=True)
-            os.makedirs(os.path.join("Output", "Pending"), exist_ok=True)
+            # Pasta Processed deve existir (criação automática removida)
 
             for file in files:
 
                 try:
-                    file_path = os.path.join("Processos", file)
-                    name =  file[3:23]
-                    output_path = os.path.join("Output", f"{name}.txt")
+                    file_path = os.path.join(base_process_dir, file)
+                    name = file[3:23]
+                    output_path = os.path.join(output_dir, f"{name}.txt")
 
                     _process_pdf(file_path, output_path)
                     if os.path.exists(output_path):
-                        shutil.move(file_path, os.path.join("Processos", "Processed", f"2-{file}"))
+                        shutil.move(
+                            file_path,
+                            os.path.join(base_process_dir, "Processed", f"{file}"),
+                        )
                     else:
-                        shutil.move(file_path, os.path.join("Processos", "Processed", f"1-{file}"))
+                        shutil.move(
+                            file_path,
+                            os.path.join(base_process_dir, "Processed", f"{file}"),
+                        )
                     progress_files.update(1)
 
                 except Exception as e:
                     print(f"Error processing file {file}: {str(e)}")
-                    # ■■■■■■■■■■■
-                    # PENDING LOGIC - OCR ERROR
-                    # ■■■■■■■■■■■
-                    try:
-                        file_path = os.path.join("Processos", file)
-                        if os.path.exists(file_path):
-                            shutil.move(
-                                file_path, os.path.join("Processos", "Pending", file)
-                            )
-                            print(f"⚠️ PDF {file} movido para Pending (erro no OCR)")
-
-                            # Criar arquivo de log do erro
-                            error_log_path = os.path.join(
-                                "Output", "Pending", f"{file[3:23]}_error.txt"
-                            )
-                            with open(error_log_path, "w", encoding="utf-8") as f:
-                                f.write(f"Erro ao processar arquivo: {file}\n")
-                                f.write(f"Mensagem de erro: {str(e)}\n")
-                                f.write(
-                                    f"Timestamp: {__import__('time').strftime('%Y-%m-%d %H:%M:%S')}\n"
-                                )
-                    except Exception as move_error:
-                        print(f"Erro ao mover arquivo para Pending: {move_error}")
-
             progress_files.close()
 
     except Exception as e:

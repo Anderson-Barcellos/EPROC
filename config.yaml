@@ -1,0 +1,150 @@
+# ═══════════════════════════════════════════════════════════
+# 📋 EPROC AUTOMATION CONFIGURATION
+# ═══════════════════════════════════════════════════════════
+
+# ■■■■■■■■■■■
+# SYSTEM SETTINGS
+# ■■■■■■■■■■■
+system:
+  base_url: "https://eproc.jfrs.jus.br/eprocV2/"
+  max_retries: 3
+  default_timeout: 10
+  download_timeout: 120
+  process_delay: 5  # segundos entre processos
+
+# ■■■■■■■■■■■
+# WEBDRIVER SETTINGS
+# ■■■■■■■■■■■
+webdriver:
+  headless: false
+  window_size: "1920,1080"
+  user_agent: ""  # deixar vazio para usar padrão
+  implicit_wait: 10
+  page_load_timeout: 30
+
+# ■■■■■■■■■■■
+# PATHS & DIRECTORIES
+# ■■■■■■■■■■■
+# NOTA: As pastas devem ser criadas manualmente. Não há mais criação automática.
+paths:
+  downloads: "Downloads"
+  processos: "Processos"
+  reports: "Reports"
+  logs: "Logs"
+  output: "Output"
+  temp: "Temp"
+
+  # Subpastas organizacionais (devem existir nas pastas principais)
+  sub_folders:
+    pending: "Pending"
+    processed: "Processed"
+    failed: "Failed"
+
+# ■■■■■■■■■■■
+# LOGGING CONFIGURATION
+# ■■■■■■■■■■■
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "[%(asctime)s] %(levelname)s - %(name)s - %(message)s"
+  file_logging: true
+  console_logging: true
+  max_log_size: 10485760  # 10MB
+  backup_count: 5
+
+# ■■■■■■■■■■■
+# AUTHENTICATION
+# ■■■■■■■■■■■
+# NOTA: Use variáveis de ambiente para segurança!
+# export EPROC_USERNAME="seu_usuario"
+# export EPROC_PASSWORD="sua_senha"
+auth:
+  username_env: "EPROC_USERNAME"
+  password_env: "EPROC_PASSWORD"
+  # Fallback (NÃO RECOMENDADO EM PRODUÇÃO)
+  username: ""
+  password: ""
+
+# ■■■■■■■■■■■
+# FORM FILLING SETTINGS
+# ■■■■■■■■■■■
+form_filling:
+  scroll_delay: 0.5
+  highlight_elements: true
+  highlight_color: "yellow"
+  highlight_border: 2
+  highlight_duration: 500
+  field_delay: 0.2  # delay entre preenchimento de campos
+
+# ■■■■■■■■■■■
+# RETRY CONFIGURATION
+# ■■■■■■■■■■■
+retry:
+  max_attempts: 3
+  base_delay: 1.0  # segundos
+  max_delay: 60.0  # segundos
+  backoff_factor: 2.0  # exponential backoff
+
+# ■■■■■■■■■■■
+# ELEMENT SELECTORS & IDS
+# ■■■■■■■■■■■
+selectors:
+  login:
+    username_field: "txtUsuario"
+    password_field: "pwdSenha"
+    submit_button: "sbmEntrar"
+    sso_frame: "ssoFrame"
+    # Alternativas para SSO/Keycloak
+    alt_username_field: "username"
+    alt_password_field: "password"
+    alt_submit_button: "kc-login"
+
+  search:
+    process_field: "txtNumProcessoPesquisaRapida"
+
+  download:
+    download_button: "btnDownloadCompletoRS"
+    generate_button: "btnGerar"
+    download_link: "lblBaixar"
+
+  form:
+    new_button: "sbmNovo"
+    save_button: "sbmAlterar"
+    parte_selector: "selParte"
+
+# ■■■■■■■■■■■
+# VALIDATION RULES
+# ■■■■■■■■■■■
+validation:
+  required_fields:
+    - "FormacaoTecnicoProfissional"
+    - "UltimaAtividade"
+    - "MotivoIncapacidade"
+    - "HistoricoAnamnese"
+    - "DocumentosMedicosAnalisados"
+    - "DCB"
+    - "DID"
+    - "DER"
+    - "DAP"
+
+  field_limits:
+    MotivoIncapacidade: 3  # palavras
+    HistoricoAnamnese: 100  # palavras
+    "CONCLUSAO PERICIAL": 70  # palavras
+
+# ■■■■■■■■■■■
+# MODEL SETTINGS
+# ■■■■■■■■■■■
+models:
+  default_model: "gpt-4o-mini"
+  fallback_model: "gpt-3.5-turbo"
+  temperature: 0.1
+  max_tokens: 4000
+
+# ■■■■■■■■■■■
+# MONITORING & METRICS
+# ■■■■■■■■■■■
+monitoring:
+  enable_metrics: true
+  success_rate_threshold: 0.8  # 80%
+  performance_logging: true
+  memory_monitoring: true

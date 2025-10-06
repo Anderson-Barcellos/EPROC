@@ -1,16 +1,14 @@
 import threading
 from google.cloud import vision
+from google.oauth2 import service_account
 import fitz
 from PIL import Image
-from google.cloud import vision
-from google.oauth2 import service_account
 import json
 import os
 from pathlib import Path
 
 
-
-#GLOBAL VARIABLES
+# GLOBAL VARIABLES
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 key = {}
@@ -25,6 +23,7 @@ except Exception as e:
 
 credentials = service_account.Credentials.from_service_account_info(key)
 client = vision.ImageAnnotatorClient(credentials=credentials)
+
 
 def OCR(page: fitz.Page, page_num: int, thread: bool = False) -> str:
     """

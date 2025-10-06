@@ -122,34 +122,38 @@ def handle_alert(driver) -> bool:
 
 def tentar_login_automatico(driver_instance: webdriver.Chrome, usuario: str, senha: str, tempo_espera: int = 5) -> bool:
     """
-    🔐 Autenticador Automático EPROC
+    ### 🔐 tentar_login_automatico
+    Performs automatic login to the EPROC system, supporting both native forms and SSO/Keycloak authentication.
+    The function intelligently detects the available login form and handles authentication seamlessly.
 
-    Função para realizar login automático no sistema EPROC, suportando tanto
-    formulário nativo quanto SSO/Keycloak.
+    ### 🖥️ Parameters
+        - `driver_instance` (`webdriver.Chrome`): Configured WebDriver instance for browser automation.
+        - `usuario` (`str`): Username for authentication. Must be a valid EPROC system user.
+        - `senha` (`str`): User password for authentication. Should meet system security requirements.
+        - `tempo_espera` (`int`, optional): Timeout in seconds for element detection. Defaults to 5.
 
-    🔧 Parameters:
-    :param driver_instance: 🌐 Instância do WebDriver configurada
-    :type driver_instance: webdriver.Chrome
-    :param usuario: 👤 Nome de usuário para login
-    :type usuario: str
-    :param senha: 🔑 Senha do usuário
-    :type senha: str
-    :param tempo_espera: ⏱️ Timeout em segundos (padrão: 15)
-    :type tempo_espera: int
-    :return: ✅ True se login bem-sucedido, False caso contrário
-    :rtype: bool
-    :raises TimeoutException: ⏱️ Se elementos de login não forem encontrados
-    :raises Exception: ❌ Se houver erro durante o processo de login
+    ### 🔄 Returns
+        - `bool`: Returns `True` if login is successful, `False` if authentication fails or elements are not found.
 
-    🎯 Example:
-    ```python
-        # Login automático no sistema
-        if tentar_login_automatico(driver, "usuario123", "senha456"):
-            print("🎉 Login realizado com sucesso")
-        else:
-            print("❌ Falha no login automático")
-    ```
+    ### ⚠️ Raises
+        - `TimeoutException`: If login form elements are not found within the specified timeout period.
+        - `Exception`: For any other errors encountered during the login process, including network issues or form validation errors.
+
+    ### 💡 Example
+
+    >>> if tentar_login_automatico(driver, "usuario123", "senha456", 10):
+    ...     print("Login successful")
+    ... else:
+    ...     print("Login failed")
+    Login successful
+
+    ### 📚 Notes
+    - The function automatically detects between standard EPROC forms and SSO/Keycloak authentication.
+    - Handles iframe switching for SSO authentication when necessary.
+    - Implements fallback mechanism to try alternative form structures if the primary form fails.
+    - Consider using secure credential management in production environments.
     """
+
     espera = WebDriverWait(driver_instance, tempo_espera)
 
     # Tentar entrar no iframe SSO se existir
@@ -242,21 +246,26 @@ def tentar_login_automatico(driver_instance: webdriver.Chrome, usuario: str, sen
 
 def pesquisar_processo(driver, numero_processo: str) -> None:
     """
-    🔍 Pesquisador de Processos EPROC
+    ### 🔍 pesquisar_processo
 
     Função para pesquisar um processo específico no sistema EPROC.
 
-    🔧 Parameters:
-    :param numero_processo: 📋 Número do processo judicial
+    ### 🖥️ Parameters:
+    - `driver` (`webdriver.Chrome`): Configured WebDriver instance for browser automation.
+    - `numero_processo` (`str`): Process number to search for. Must be a valid EPROC process number.
     :type numero_processo: str
-    :raises TimeoutException: ⏱️ Se campo de pesquisa não for encontrado
-    :raises Exception: ❌ Se houver erro durante a pesquisa
+    ### 🔄 Returns
+        - `bool`: Returns `True` if search is successful, `False` if search fails or elements are not found.
 
-    🎯 Example:
+    ### ⚠️ Raises
+        - `TimeoutException`: If search field is not found within the specified timeout period.
+        - `Exception`: For any other errors encountered during the search process, including network issues or form validation errors.
+
+    ### 💡 Example:
     ```python
         # Pesquisar processo específico
         pesquisar_processo("5008676-91.2024.4.04.7102")
-        print("🔍 Processo pesquisado com sucesso")
+        print("Processo pesquisado com sucesso")
     ```
     """
     try:
@@ -435,9 +444,8 @@ def processar_numero(driver, numero_processo: str) -> None:
     # ■■■■■■■■■■■
     # PENDING LOGIC
     # ■■■■■■■■■■■
-    # Criar pasta Pending se não existir
+    # Pasta Pending deve existir (criação automática removida)
     pending_folder = os.path.join("Processos", "Pending")
-    os.makedirs(pending_folder, exist_ok=True)
 
     # Salvar registro do processo que falhou
     pending_file = os.path.join(pending_folder, f"{numero_processo}_pending.txt")
@@ -533,20 +541,13 @@ def EPROC_Download(numeros_processos: list[str]) -> bool:
             return os.path.exists(os.path.join(".", filename))
 
         # Login automático
-        if tentar_login_automatico(driver, usuario, senha):
-            print("Login automático bem-sucedido. Continuando com o processamento.")
-        else:
-            print("Não foi possível fazer login automaticamente. Por favor, faça login manualmente.")
-            input("Pressione Enter depois de fazer login manualmente...")
-
-        time.sleep(3)
-
-        # Verificar página correta
         if "painel_perito_listar" in driver.current_url:
             print("Login bem-sucedido. Estamos na página correta.")
-        else:
-            print("Verificação manual de login necessária.")
-            input("Pressione Enter após confirmar que está logado...")
+
+        elif tentar_login_automatico(driver, usuario, senha):
+            print("Login automático bem-sucedido. Continuando com o processamento.")
+
+        time.sleep(3)
 
         # Processar cada número
         processos_com_erro = []

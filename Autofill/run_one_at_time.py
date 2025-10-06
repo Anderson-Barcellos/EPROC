@@ -68,12 +68,29 @@ if __name__ == "__main__":
         return os.path.join(os.getcwd(), f"{i}_temp_script.py")
 
     reports = os.path.join("Reports")
+    pending_folder = os.path.join("Reports", "Pending")
+    processed_folder = os.path.join("Reports", "Processed")
+
+    if not os.path.isdir(reports):
+        raise FileNotFoundError(
+            "Required folder not found: Reports. Please create it before running the automation."
+        )
+
+    if not os.path.isdir(pending_folder):
+        raise FileNotFoundError(
+            "Required folder not found: Reports/Pending. Please create it before running the automation."
+        )
+
+    if not os.path.isdir(processed_folder):
+        raise FileNotFoundError(
+            "Required folder not found: Reports/Processed. Please create it before running the automation."
+        )
+
     i = 0
     # ■■■■■■■■■■■
     # PENDING SETUP
     # ■■■■■■■■■■■
-    pending_folder = os.path.join("Reports", "Pending")
-    os.makedirs(pending_folder, exist_ok=True)
+    # Pasta Pending deve existir (criação automática removida)
 
     try:
         for file in os.listdir(reports):
